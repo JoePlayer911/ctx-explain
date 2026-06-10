@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context-Limit Handling in LLMs</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#08080d;--bg2:#0f0f18;--card:rgba(255,255,255,0.03);--txt:#e8e8ed;--txt2:#7a7a90;--bdr:rgba(255,255,255,0.07);--infini:#10b981;--stream:#f59e0b;--mspoe:#06b6d4;--deep:#8b5cf6;--attn:#f43f5e}
+        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+        body::before{content:'';position:fixed;top:-40%;left:-20%;width:80%;height:80%;background:radial-gradient(ellipse,rgba(139,92,246,0.06),transparent 70%);pointer-events:none}
+        .ctr{max-width:1200px;margin:0 auto;padding:60px 24px;position:relative;z-index:1}
+        .hero{text-align:center;margin-bottom:64px}
+        .badge{display:inline-block;padding:6px 16px;border:1px solid var(--bdr);border-radius:100px;font-size:12px;font-weight:500;color:var(--txt2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:20px;background:rgba(255,255,255,0.04)}
+        .hero h1{font-size:clamp(32px,5vw,56px);font-weight:800;line-height:1.1;letter-spacing:-1.5px;background:linear-gradient(135deg,#fff,#a0a0c0);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:16px}
+        .hero p{font-size:17px;color:var(--txt2);max-width:600px;margin:0 auto;line-height:1.6}
+        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;margin-bottom:80px}
+        .mc{background:var(--card);border:1px solid var(--bdr);border-radius:16px;padding:28px;text-decoration:none;color:inherit;transition:all .35s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+        .mc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;opacity:.7;transition:opacity .3s}
+        .mc:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.14);transform:translateY(-4px);box-shadow:0 20px 60px rgba(0,0,0,0.4)}
+        .mc:hover::before{opacity:1}
+        .mc[data-m="i"]::before{background:linear-gradient(90deg,var(--infini),transparent)}
+        .mc[data-m="s"]::before{background:linear-gradient(90deg,var(--stream),transparent)}
+        .mc[data-m="m"]::before{background:linear-gradient(90deg,var(--mspoe),transparent)}
+        .mc[data-m="d"]::before{background:linear-gradient(90deg,var(--deep),transparent)}
+        .mc[data-m="a"]::before{background:linear-gradient(90deg,var(--attn),transparent)}
+        .ic{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:16px;border:1px solid rgba(255,255,255,0.1)}
+        .mc[data-m="i"] .ic{background:rgba(16,185,129,0.12)}
+        .mc[data-m="s"] .ic{background:rgba(245,158,11,0.12)}
+        .mc[data-m="m"] .ic{background:rgba(6,182,212,0.12)}
+        .mc[data-m="d"] .ic{background:rgba(139,92,246,0.12)}
+        .mc[data-m="a"] .ic{background:rgba(244,63,94,0.12)}
+        .cl{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+        .mc[data-m="i"] .cl{color:var(--infini)}
+        .mc[data-m="s"] .cl{color:var(--stream)}
+        .mc[data-m="m"] .cl{color:var(--mspoe)}
+        .mc[data-m="d"] .cl{color:var(--deep)}
+        .mc[data-m="a"] .cl{color:var(--attn)}
+        .ct{font-size:18px;font-weight:700;margin-bottom:8px;letter-spacing:-.3px}
+        .cd{font-size:13px;color:var(--txt2);line-height:1.55;margin-bottom:16px}
+        .tags{display:flex;flex-wrap:wrap;gap:6px}
+        .tg{font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:var(--txt2);font-family:'JetBrains Mono',monospace}
+        .tg.y{color:#34d399;border-color:rgba(52,211,153,0.2);background:rgba(52,211,153,0.06)}
+        .tg.n{color:#f87171;border-color:rgba(248,113,113,0.2);background:rgba(248,113,113,0.06)}
+        .ar{position:absolute;top:28px;right:28px;font-size:18px;color:var(--txt2);transition:transform .3s,color .3s}
+        .mc:hover .ar{transform:translate(4px,-4px);color:var(--txt)}
+        .ts h2{font-size:28px;font-weight:700;margin-bottom:8px;letter-spacing:-.5px}
+        .ts>p{color:var(--txt2);font-size:14px;margin-bottom:28px}
+        .tw{overflow-x:auto;border:1px solid var(--bdr);border-radius:16px;background:var(--card)}
+        table{width:100%;border-collapse:collapse;font-size:13px;min-width:900px}
+        thead th{padding:16px 14px;text-align:left;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--txt2);border-bottom:1px solid var(--bdr);background:rgba(255,255,255,0.02);white-space:nowrap}
+        thead th:first-child{min-width:200px}
+        tbody td{padding:14px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:top;line-height:1.5}
+        tbody tr:last-child td{border-bottom:none}
+        tbody tr:hover{background:rgba(255,255,255,0.02)}
+        tbody td:first-child{font-weight:600}
+        .cy{color:#34d399}.cn{color:#f87171}
+        .cy::before{content:'✅ '}.cn::before{content:'❌ '}
+        .ft{text-align:center;margin-top:80px;padding-top:32px;border-top:1px solid var(--bdr);color:var(--txt2);font-size:13px}
+        @media(max-width:768px){.grid{grid-template-columns:1fr}.ctr{padding:32px 16px}}
+    </style>
+</head>
+<body>
+<div class="ctr">
+    <div class="hero">
+        <div class="badge" data-en="Advanced Algorithms — Interactive Reference" data-zh="高等演算法 — 互動式參考指南">Advanced Algorithms — Interactive Reference</div>
+        <h1 data-en="Context-Limit Handling in Large Language Models" data-zh="大型語言模型之上下文限制處理">Context-Limit Handling in Large Language Models</h1>
+        <p data-en="Five architecturally distinct approaches to the fundamental bottleneck of transformer attention: how to process more context than memory allows." data-zh="五種不同架構設計的方法，旨在解決 Transformer 注意力機制的根本瓶頸：如何處理超出記憶體限制的超長上下文。">Five architecturally distinct approaches to the fundamental bottleneck of transformer attention: how to process more context than memory allows.</p>
+    </div>
+    <div class="grid">
+        <a href="infini.html" class="mc" data-m="i">
+            <span class="ar">↗</span>
+            <div class="ic">🧠</div>
+            <div class="cl" data-en="Google Research, 2024" data-zh="Google Research, 2024">Google Research, 2024</div>
+            <div class="ct" data-en="Infini-attention" data-zh="Infini-attention">Infini-attention</div>
+            <div class="cd" data-en="Compressive Memory & Local Masked Attention. Folds past KV states into a fixed-size memory matrix via associative binding, then gates local and retrieved context together." data-zh="壓縮記憶體與局部遮罩注意力機制。透過結合綁定將過去的 KV 狀態折疊至固定大小的記憶體矩陣中，隨後門控融合局部與檢索的上下文。">Compressive Memory & Local Masked Attention. Folds past KV states into a fixed-size memory matrix via associative binding, then gates local and retrieved context together.</div>
+            <div class="tags">
+                <span class="tg y" data-en="Memory" data-zh="記憶體優化">Memory</span>
+                <span class="tg y" data-en="Compute" data-zh="計算優化">Compute</span>
+                <span class="tg y" data-en="Local" data-zh="保留局部資訊">Local</span>
+                <span class="tg n" data-en="Amnesia" data-zh="長程失憶性">Amnesia</span>
+                <span class="tg n" data-en="Middle" data-zh="中段遺忘">Middle</span>
+            </div>
+        </a>
+        <a href="streamLLM.html" class="mc" data-m="s">
+            <span class="ar">↗</span>
+            <div class="ic">🌊</div>
+            <div class="cl" data-en="MIT / Meta AI, 2023" data-zh="MIT / Meta AI, 2023">MIT / Meta AI, 2023</div>
+            <div class="ct" data-en="StreamingLLM" data-zh="StreamingLLM">StreamingLLM</div>
+            <div class="cd" data-en="Sliding Window & KV Cache Eviction with Attention Sinks. Keeps initial 'sink' tokens plus a rolling window of recent tokens — permanently discards the middle." data-zh="滑動窗口與注意力錨點的 KV 快取驅逐機制。保留初始數個「錨點（Sink）」Token，結合近期的滑動窗口，永久丟棄中段資訊。">Sliding Window & KV Cache Eviction with Attention Sinks. Keeps initial 'sink' tokens plus a rolling window of recent tokens — permanently discards the middle.</div>
+            <div class="tags">
+                <span class="tg y" data-en="Memory" data-zh="記憶體優化">Memory</span>
+                <span class="tg y" data-en="Compute" data-zh="計算優化">Compute</span>
+                <span class="tg y" data-en="Local" data-zh="保留局部資訊">Local</span>
+                <span class="tg n" data-en="Amnesia" data-zh="長程失憶性">Amnesia</span>
+                <span class="tg n" data-en="Middle" data-zh="中段遺忘">Middle</span>
+            </div>
+        </a>
+        <a href="mspoe.html" class="mc" data-m="m">
+            <span class="ar">↗</span>
+            <div class="ic">📐</div>
+            <div class="cl" data-en="NeurIPS 2024" data-zh="NeurIPS 2024">NeurIPS 2024</div>
+            <div class="ct" data-en="Ms-PoE" data-zh="Ms-PoE">Ms-PoE</div>
+            <div class="cd" data-en="Multi-Scale Positional Encoding. A training-free plug-and-play method that rescales RoPE position indices across attention heads to prevent long-distance attention decay." data-zh="多尺度位置編碼。一種無需訓練、隨插即用的方法，透過重新縮放不同注意力頭上的 RoPE 位置索引，以防止長距離注意力衰減。">Multi-Scale Positional Encoding. A training-free plug-and-play method that rescales RoPE position indices across attention heads to prevent long-distance attention decay.</div>
+            <div class="tags">
+                <span class="tg n" data-en="Memory" data-zh="無記憶體優化">Memory</span>
+                <span class="tg n" data-en="Compute" data-zh="無計算優化">Compute</span>
+                <span class="tg y" data-en="Local" data-zh="保留局部資訊">Local</span>
+                <span class="tg y" data-en="Amnesia" data-zh="無長程失憶">Amnesia</span>
+                <span class="tg y" data-en="Middle" data-zh="解決中段遺忘">Middle</span>
+            </div>
+        </a>
+        <a href="deepseek.html" class="mc" data-m="d">
+            <span class="ar">↗</span>
+            <div class="ic">⚡</div>
+            <div class="cl" data-en="DeepSeek AI, 2025" data-zh="DeepSeek AI, 2025">DeepSeek AI, 2025</div>
+            <div class="ct" data-en="DeepSeek V4" data-zh="DeepSeek V4">DeepSeek V4</div>
+            <div class="cd" data-en="HCA, CSA, Sliding Window & Lightning Indexer. Interleaves two compression-based attention layers with a lightweight FP4 relevance scorer for near-linear scaling." data-zh="HCA、CSA、滑動窗口與 Lightning 索引器。交錯配置兩種基於壓縮的注意力層，並結合輕量型 FP4 相關性評分器以實現近乎線性的複雜度擴展。">HCA, CSA, Sliding Window & Lightning Indexer. Interleaves two compression-based attention layers with a lightweight FP4 relevance scorer for near-linear scaling.</div>
+            <div class="tags">
+                <span class="tg y" data-en="Memory" data-zh="記憶體優化">Memory</span>
+                <span class="tg y" data-en="Compute" data-zh="計算優化">Compute</span>
+                <span class="tg y" data-en="Local" data-zh="保留局部資訊">Local</span>
+                <span class="tg y" data-en="Amnesia" data-zh="無長程失憶">Amnesia</span>
+                <span class="tg n" data-en="Middle" data-zh="中段遺忘">Middle</span>
+            </div>
+        </a>
+        <a href="attngs.html" class="mc" data-m="a">
+            <span class="ar">↗</span>
+            <div class="ic">✂️</div>
+            <div class="cl" data-en="2026" data-zh="2026">2026</div>
+            <div class="ct" data-en="Attn-GS" data-zh="Attn-GS">Attn-GS</div>
+            <div class="cd" data-en="Attention-Guided Prompt Compression. Uses a marking model's attention patterns to score sentence importance, then a compression model strips low-value content before the LLM sees it." data-zh="注意力引導之提示詞壓縮。利用標記模型的注意力模式對句子重要性進行評分，並在提示詞送入 LLM 之前由壓縮模型剝離低價值內容。">Attention-Guided Prompt Compression. Uses a marking model's attention patterns to score sentence importance, then a compression model strips low-value content before the LLM sees it.</div>
+            <div class="tags">
+                <span class="tg y" data-en="Memory" data-zh="記憶體優化">Memory</span>
+                <span class="tg y" data-en="Compute" data-zh="計算優化">Compute</span>
+                <span class="tg n" data-en="Local" data-zh="損失局部資訊">Local</span>
+                <span class="tg n" data-en="Amnesia" data-zh="長程失憶性">Amnesia</span>
+                <span class="tg n" data-en="Middle" data-zh="中段遺忘">Middle</span>
+            </div>
+        </a>
+    </div>
+    <div class="ts">
+        <h2 data-en="Comparison Matrix" data-zh="方法對比矩陣">Comparison Matrix</h2>
+        <p data-en="How each method addresses the five core problems of long-context transformers." data-zh="各個方法如何應對長上下文 Transformer 面臨的五大核心挑戰。">How each method addresses the five core problems of long-context transformers.</p>
+        <div class="tw"><table><thead><tr>
+            <th data-en="Problem" data-zh="核心挑戰">Problem</th>
+            <th style="color:var(--mspoe)">Ms-PoE</th>
+            <th style="color:var(--deep)">DeepSeek V4</th>
+            <th style="color:var(--infini)">Infini-attn</th>
+            <th style="color:var(--stream)">StreamingLLM</th>
+            <th style="color:var(--attn)">Attn-GS</th>
+        </tr></thead><tbody>
+            <tr>
+                <td data-en="Exploding KV Cache" data-zh="KV 快取暴增">Exploding KV Cache</td>
+                <td class="cn" data-en="Still stores every token individually." data-zh="仍需個別儲存每個 Token 的狀態。">Still stores every token individually.</td>
+                <td class="cy" data-en="90% memory reduction via dense chunking." data-zh="透過稠密分塊達成 90% 記憶體縮減。">90% memory reduction via dense chunking.</td>
+                <td class="cy" data-en="Compresses history into fixed-size memory." data-zh="將歷史資料壓縮至固定大小的記憶體矩陣。">Compresses history into fixed-size memory.</td>
+                <td class="cy" data-en="Permanently drops oldest tokens." data-zh="永久丟棄超出窗口的最舊 Token。">Permanently drops oldest tokens.</td>
+                <td class="cy" data-en="Shortens prompt before LLM." data-zh="在提示詞進入 LLM 前即進行縮減。">Shortens prompt before LLM.</td>
+            </tr>
+            <tr>
+                <td data-en="Quadratic Compute" data-zh="二次方計算複雜度">Quadratic Compute</td>
+                <td class="cn" data-en="Still compares every word to every past word." data-zh="仍需對每個字與過去所有字做注意力對比。">Still compares every word to every past word.</td>
+                <td class="cy" data-en="Lightning Indexer skips irrelevant history." data-zh="Lightning 索引器跳過不相關的歷史。">Lightning Indexer skips irrelevant history.</td>
+                <td class="cy" data-en="Checks fixed memory, not growing list." data-zh="檢索固定大小記憶體，而非不斷增加的清單。">Checks fixed memory, not growing list.</td>
+                <td class="cy" data-en="Fixed window caps comparisons." data-zh="固定窗口限制了最大對比次數。">Fixed window caps comparisons.</td>
+                <td class="cy" data-en="Reduces input length." data-zh="直接縮減輸入長度以降低計算負擔。">Reduces input length.</td>
+            </tr>
+            <tr>
+                <td data-en="Immediate Context Loss" data-zh="即時上下文損失">Immediate Context Loss</td>
+                <td class="cy" data-en="No compression; exact wording preserved." data-zh="無壓縮；完美保留字詞精確度。">No compression; exact wording preserved.</td>
+                <td class="cy" data-en="Sliding window keeps recent words exact." data-zh="滑動窗口確保近期字詞維持精確。">Sliding window keeps recent words exact.</td>
+                <td class="cy" data-en="Local masked attention preserves precision." data-zh="局部遮罩注意力機制保留當前精確細節。">Local masked attention preserves precision.</td>
+                <td class="cy" data-en="Sliding window preserves recent context." data-zh="滑動窗口保留近期上下文。">Sliding window preserves recent context.</td>
+                <td class="cn" data-en="Compression risks stripping nuances." data-zh="壓縮可能不慎剝離微小的提示細節。">Compression risks stripping nuances.</td>
+            </tr>
+            <tr>
+                <td data-en="Long-Term Amnesia" data-zh="長程資訊失憶">Long-Term Amnesia</td>
+                <td class="cy" data-en="All data retained in KV cache." data-zh="所有資料均完整保留於 KV 快取。">All data retained in KV cache.</td>
+                <td class="cy" data-en="Nothing permanently deleted; HCA retains summaries." data-zh="無任何永久刪除；HCA 保留粗略全局摘要。">Nothing permanently deleted; HCA retains summaries.</td>
+                <td class="cn" data-en="Distant details blur in compressed state." data-zh="遠期細節在壓縮狀態中會逐漸模糊。">Distant details blur in compressed state.</td>
+                <td class="cn" data-en="Evicted tokens permanently forgotten." data-zh="被驅逐的 Token 將會永久遺忘。">Evicted tokens permanently forgotten.</td>
+                <td class="cn" data-en="Deleted sentences cannot be recalled." data-zh="已被物理刪除的句子無法在後續召回。">Deleted sentences cannot be recalled.</td>
+            </tr>
+            <tr>
+                <td data-en="Lost in the Middle" data-zh="中段遺忘問題">Lost in the Middle</td>
+                <td class="cy" data-en="Rescaling prevents attention decay mid-document." data-zh="多尺度縮放能防止文檔中段注意力衰減。">Rescaling prevents attention decay mid-document.</td>
+                <td class="cn" data-en="Synthesizing buried facts still degrades accuracy." data-zh="從壓縮塊中合成被埋藏的事實仍會降低精確度。">Synthesizing buried facts still degrades accuracy.</td>
+                <td class="cn" data-en="Compression blurs exact details." data-zh="壓縮矩陣本質上會模糊確切細節。">Compression blurs exact details.</td>
+                <td class="cn" data-en="Only remembers beginning sinks + recent end." data-zh="僅記得開頭錨點與近期末尾，遺棄中段資訊。">Only remembers beginning sinks + recent end.</td>
+                <td class="cn" data-en="Less raw data to connect the dots." data-zh="剩餘的原生資料較少，不利於關聯上下文。">Less raw data to connect the dots.</td>
+            </tr>
+        </tbody></table></div>
+    </div>
+    <div class="ft"><p data-en="Advanced Algorithms — Context-Limit Handling Interactive Reference" data-zh="高等演算法 — 上下文限制處理互動式參考指南">Advanced Algorithms — Context-Limit Handling Interactive Reference</p></div>
+</div>
+
+<script>
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function injectLangSelector() {
+    const selector = document.createElement('div');
+    selector.className = 'lang-selector';
+    selector.innerHTML = `
+        <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">繁中</button>
+    `;
+    document.body.appendChild(selector);
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--bdr, rgba(255,255,255,0.1));
+            border-radius: 8px;
+            padding: 3px;
+            z-index: 1000;
+        }
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: #7a7a90;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .lang-btn:hover {
+            color: #e8e8ed;
+        }
+        .lang-btn.active {
+            background: var(--infini, #10b981);
+            color: #000 !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+    const targetBtn = document.getElementById('lang-' + lang);
+    if(targetBtn) targetBtn.classList.add('active');
+    
+    document.querySelectorAll('[data-en]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+    });
+    
+    document.querySelectorAll('[data-en-html]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+    });
+
+    if (typeof updatePageTranslations === 'function') {
+        updatePageTranslations(lang);
+    }
+}
+
+injectLangSelector();
+setLanguage(currentLang);
+</script>
+</body>
+</html>

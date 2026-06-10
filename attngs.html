@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attn-GS — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#08080d;--card:rgba(255,255,255,0.03);--txt:#e8e8ed;--txt2:#7a7a90;--bdr:rgba(255,255,255,0.07);--accent:#f43f5e;--keep:#34d399;--strip:#ef4444;--mark:#fbbf24;--compress:#a78bfa}
+        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+        body::before{content:'';position:fixed;top:-30%;right:-20%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(244,63,94,0.06),transparent 70%);pointer-events:none}
+        .back{position:fixed;top:20px;left:20px;color:var(--txt2);text-decoration:none;font-size:13px;font-weight:500;z-index:10;padding:8px 16px;border:1px solid var(--bdr);border-radius:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);transition:all .2s}
+        .back:hover{color:var(--txt);border-color:rgba(255,255,255,0.15)}
+        .ctr{max-width:1100px;margin:0 auto;padding:60px 24px 40px}
+        .hdr{margin-bottom:32px}
+        .hdr-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+        .hdr h1{font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+        .hdr p{color:var(--txt2);font-size:14px;line-height:1.6;max-width:700px}
+        .summary{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-bottom:28px}
+        .summary .desc{font-size:13px;color:var(--txt2);line-height:1.6}
+        .eq{font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 12px;border-radius:8px;margin-top:8px;display:inline-block;background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.15);color:#fda4af}
+        .ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:28px;background:rgba(8,8,13,0.92);border:1px solid var(--bdr);border-radius:12px;padding:16px 20px;position:sticky;top:0;z-index:5;backdrop-filter:blur(16px)}
+        .btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .2s}
+        .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+        .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+        .btn-sec{background:rgba(255,255,255,0.08);color:var(--txt);font-weight:600}
+        .btn-sec:hover{background:rgba(255,255,255,0.12)}
+        .slider-g{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--txt2)}
+        .slider-g input[type=range]{width:140px;accent-color:var(--accent)}
+        .slider-g .val{color:var(--accent);font-family:'JetBrains Mono',monospace}
+        .status{font-size:12px;color:var(--txt2);font-style:italic;margin-left:auto}
+        .section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);margin-bottom:10px;margin-top:20px}
+        /* Pipeline stages */
+        .pipe-flow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:28px;padding:14px;background:var(--card);border:1px solid var(--bdr);border-radius:12px}
+        .pipe-stage{padding:10px 18px;border-radius:8px;font-size:12px;font-weight:700;border:2px solid;transition:all .3s}
+        .pipe-stage.s1{border-color:rgba(251,191,36,0.3);color:var(--mark);background:rgba(251,191,36,0.06)}
+        .pipe-stage.s2{border-color:rgba(167,139,250,0.3);color:var(--compress);background:rgba(167,139,250,0.06)}
+        .pipe-stage.s3{border-color:rgba(52,211,153,0.3);color:var(--keep);background:rgba(52,211,153,0.06)}
+        .pipe-stage.active{transform:scale(1.05);box-shadow:0 0 20px rgba(244,63,94,0.2)}
+        .pipe-arrow{color:rgba(255,255,255,0.15);font-size:18px;font-weight:bold}
+        /* Sentences */
+        .sentences{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+        .sent{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid var(--bdr);background:var(--card);transition:all .4s;position:relative}
+        .sent-text{font-size:13px;line-height:1.5;flex:1}
+        .sent-score{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;min-width:60px;text-align:center;padding:4px 8px;border-radius:6px;white-space:nowrap}
+        .sent-bar{position:absolute;bottom:0;left:0;height:3px;border-radius:0 0 10px 10px;transition:width .5s}
+        .sent.high{border-color:rgba(52,211,153,0.2)}
+        .sent.high .sent-score{background:rgba(52,211,153,0.1);color:var(--keep)}
+        .sent.high .sent-bar{background:var(--keep)}
+        .sent.low{border-color:rgba(239,68,68,0.2)}
+        .sent.low .sent-score{background:rgba(239,68,68,0.1);color:var(--strip)}
+        .sent.low .sent-bar{background:var(--strip)}
+        .sent.stripped{opacity:.25;text-decoration:line-through;border-style:dashed}
+        .sent.kept{border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.04)}
+        /* Comparison */
+        .compare{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+        .comp-card{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px;position:relative;overflow:hidden}
+        .comp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .comp-card.before::before{background:linear-gradient(90deg,var(--strip),transparent)}
+        .comp-card.after::before{background:linear-gradient(90deg,var(--keep),transparent)}
+        .comp-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+        .comp-card.before .comp-title{color:var(--strip)}
+        .comp-card.after .comp-title{color:var(--keep)}
+        .comp-val{font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+        .comp-desc{font-size:11px;color:var(--txt2);line-height:1.4}
+        /* Attention heatmap */
+        .attn-heat{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:12px}
+        .attn-cell{width:28px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'JetBrains Mono',monospace;transition:all .4s;border:1px solid transparent}
+        /* Properties */
+        .props{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-top:20px}
+        .props h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px}
+        .prop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+        .prop{font-size:12px;padding:8px 12px;border-radius:8px;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+        .prop.yes{background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.12);color:#6ee7b7}
+        .prop.no{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.12);color:#fca5a5}
+        /* Final prompt panel */
+        .final-prompt{background:var(--card);border:1px solid rgba(52,211,153,0.2);border-radius:14px;padding:20px;margin-bottom:20px;display:none;position:relative;overflow:hidden}
+        .final-prompt::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--keep),var(--accent),transparent)}
+        .fp-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--keep);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+        .fp-text{font-size:13px;line-height:1.8;color:var(--txt);background:rgba(0,0,0,0.3);border:1px solid var(--bdr);border-radius:10px;padding:16px}
+        .fp-text .kept-sent{color:#6ee7b7}
+        .fp-lost{margin-top:14px;padding:14px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.12);border-radius:10px}
+        .fp-lost-title{font-size:12px;font-weight:700;color:#f87171;margin-bottom:8px}
+        .fp-lost-text{font-size:12px;color:rgba(248,113,113,0.6);line-height:1.7;text-decoration:line-through}
+        @media(max-width:768px){.compare{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+<a href="index.html" class="back" data-en="← All Methods" data-zh="← 返回所有方法">← All Methods</a>
+<div class="ctr">
+    <div class="hdr">
+        <div class="hdr-label" data-en="2026" data-zh="2026">2026</div>
+        <h1 data-en="Attn-GS Visualizer" data-zh="Attn-GS 視覺化工具">Attn-GS Visualizer</h1>
+        <p data-en="Attention-Guided Prompt Context Compression — 'Attention-Guided Context Compression for Efficient Personalized LLMs'" data-zh="注意力引導的提示詞上下文壓縮 — 「Attention-Guided Context Compression for Efficient Personalized LLMs」">Attention-Guided Prompt Compression — "Attention-Guided Context Compression for Efficient Personalized LLMs"</p>
+    </div>
+    <div class="summary">
+        <div class="desc" data-en="Unlike other methods that modify the transformer's internal attention, Attn-GS operates before the prompt reaches the LLM. A marking model analyzes attention patterns to score each sentence's importance, then a compression model strips low-value content — achieving up to 50× token reduction while preserving task-critical information." data-zh="與其他修改 Transformer 內部注意力的機制不同，Attn-GS 作用於提示詞到達 LLM 之前。它包含一個評估模型（Marking Model）來分析注意力模式並為每句話評估重要性，然後由一個壓縮模型（Compression Model）剔除低價值內容 — 實現高達 50 倍的 Token 減量，同時保留任務關鍵資訊。">Unlike other methods that modify the transformer's internal attention, Attn-GS operates <strong>before the prompt reaches the LLM</strong>. A <strong>marking model</strong> analyzes attention patterns to score each sentence's importance, then a <strong>compression model</strong> strips low-value content — achieving up to <strong>50× token reduction</strong> while preserving task-critical information.</div>
+        <div class="eq" data-en="Pipeline: Input → Marking Model (attention scoring) → Compression Model → Shortened Prompt → LLM" data-zh="處理管道：輸入提示詞 → 評估模型 (注意力評分) → 壓縮模型 → 縮短後提示詞 → LLM">Pipeline: Input → Marking Model (attention scoring) → Compression Model → Shortened Prompt → LLM</div>
+    </div>
+    <div class="ctrl">
+        <button class="btn" id="step-btn" onclick="processStep()" data-en="▶ Next Step" data-zh="▶ 下一步">▶ Next Step</button>
+        <button class="btn btn-sec" id="prev-btn" onclick="prevStep()" disabled data-en="◀ Previous" data-zh="◀ 上一步">◀ Previous</button>
+        <button class="btn btn-sec" onclick="resetSim()" data-en="↺ Reset" data-zh="↺ 重設">↺ Reset</button>
+        <div class="slider-g">
+            <label><span data-en="Compression Threshold:" data-zh="壓縮閾值：">Compression Threshold:</span> <span class="val" id="thresh-val">0.40</span></label>
+            <input type="range" id="thresh" min="0.1" max="0.9" step="0.05" value="0.4" oninput="updateThresh(this.value)">
+        </div>
+        <div class="status" id="status" data-en="Ready — step through the Attn-GS pipeline." data-zh="就緒 — 逐步探索 Attn-GS 管道。">Ready — step through the Attn-GS pipeline.</div>
+    </div>
+
+    <div class="section-label" data-en="Pipeline Stages" data-zh="管道階段">Pipeline Stages</div>
+    <div class="pipe-flow">
+        <div class="pipe-stage s1" id="ps1" data-en="1. Marking Model" data-zh="1. 評估模型 (Marking Model)">1. Marking Model</div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-stage s2" id="ps2" data-en="2. Compression" data-zh="2. 壓縮階段 (Compression)">2. Compression</div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-stage s3" id="ps3" data-en="3. Compressed Prompt" data-zh="3. 壓縮後提示詞 (Compressed Prompt)">3. Compressed Prompt</div>
+    </div>
+
+    <div class="section-label" data-en="Input Sentences with Attention-Based Importance Scores" data-zh="附帶注意力重要性評分的輸入句子">Input Sentences with Attention-Based Importance Scores</div>
+    <div class="sentences" id="sentences"></div>
+
+    <div class="compare" id="compare" style="display:none">
+        <div class="comp-card before">
+            <div class="comp-title" data-en="Before Compression" data-zh="壓縮前">Before Compression</div>
+            <div class="comp-val" id="tok-before">—</div>
+            <div class="comp-desc" data-en="Total tokens in original prompt" data-zh="原始提示詞的總 Token 數">Total tokens in original prompt</div>
+        </div>
+        <div class="comp-card after">
+            <div class="comp-title" data-en="After Compression" data-zh="壓縮後">After Compression</div>
+            <div class="comp-val" id="tok-after">—</div>
+            <div class="comp-desc" id="ratio-desc">Compression ratio</div>
+        </div>
+    </div>
+
+    <div class="final-prompt" id="final-prompt">
+        <div class="fp-title" id="fp-title-el">📄 What the LLM Actually Receives (Final Compressed Prompt)</div>
+        <div class="fp-text" id="fp-kept"></div>
+        <div class="fp-lost" id="fp-lost-section">
+            <div class="fp-lost-title" id="fp-lost-title-el">🚫 Permanently Lost — The LLM will never see these:</div>
+            <div class="fp-lost-text" id="fp-lost"></div>
+        </div>
+    </div>
+
+    <div class="props">
+        <h3 data-en="Method Properties" data-zh="方法屬性">Method Properties</h3>
+        <div class="prop-grid">
+            <div class="prop yes">✅ <div data-en="KV Cache: Shortens the prompt before it reaches the LLM — fewer tokens to cache." data-zh="KV 快取：在提示詞到達 LLM 之前進行縮短，進而減少需要快取的 Token。"><strong>KV Cache:</strong> Shortens the prompt before it reaches the LLM — fewer tokens to cache.</div></div>
+            <div class="prop yes">✅ <div data-en="Quadratic Scaling: Reduces input length, directly reducing attention computation." data-zh="二次計算複雜度：直接減少輸入長度，從而降低注意力機制的二次方計算代價。"><strong>Quadratic Scaling:</strong> Reduces input length, directly reducing attention computation.</div></div>
+            <div class="prop no">❌ <div data-en="Immediate Context: Coarse compression risks accidentally stripping subtle prompt nuances." data-zh="即時上下文：粗粒度的句子級壓縮可能不小心刪除提示詞中細微但關鍵的語境。"><strong>Immediate Context:</strong> Coarse compression risks accidentally stripping subtle prompt nuances.</div></div>
+            <div class="prop no">❌ <div data-en="Long-Term Amnesia: Physically deleted sentences cannot be recalled later — irreversible loss." data-zh="長程失憶問題：實體刪除的句子無法在後續召回 — 造成不可逆的資訊遺失。"><strong>Long-Term Amnesia:</strong> Physically deleted sentences cannot be recalled later — irreversible loss.</div></div>
+            <div class="prop no">❌ <div data-en="Lost in Middle: Stripping tokens upfront gives the model even less raw data to connect the dots." data-zh="中段遺忘問題：預先將 Token 裁減掉，使模型完全失去連結不同部分細節資訊的可能性。"><strong>Lost in Middle:</strong> Stripping tokens upfront gives the model even less raw data to connect the dots.</div></div>
+        </div>
+    </div>
+</div>
+<script>
+const SENTENCES_EN = [
+    {text: "The user previously asked about climate change impacts on coastal cities.", tokens: 12, importance: 0.85},
+    {text: "They mentioned they live in Taipei and are interested in local flooding risks.", tokens: 14, importance: 0.92},
+    {text: "The conversation started on a Tuesday afternoon.", tokens: 8, importance: 0.12},
+    {text: "The user's browser was Chrome version 125.0.", tokens: 9, importance: 0.05},
+    {text: "They expressed concern about property values near riverbanks.", tokens: 10, importance: 0.78},
+    {text: "The session ID was abc-123-def-456.", tokens: 10, importance: 0.03},
+    {text: "They asked for specific data on sea level rise projections for East Asia.", tokens: 14, importance: 0.95},
+    {text: "The API response latency was 230ms.", tokens: 8, importance: 0.08},
+    {text: "The user clicked the 'Learn More' button three times.", tokens: 10, importance: 0.15},
+    {text: "They want actionable advice on flood-proofing their home.", tokens: 10, importance: 0.88}
+];
+
+const SENTENCES_ZH = [
+    {text: "使用者先前曾詢問過氣候變遷對沿海城市的影響。", tokens: 12, importance: 0.85},
+    {text: "他們提到自己住在台北，對當地的淹水風險很感興趣。", tokens: 14, importance: 0.92},
+    {text: "對話開始於某個星期二的下午時分。", tokens: 8, importance: 0.12},
+    {text: "使用者的瀏覽器是 Chrome 版本 125.0。", tokens: 9, importance: 0.05},
+    {text: "他們對河岸附近的房屋資產價值表達了擔憂。", tokens: 10, importance: 0.78},
+    {text: "該對話的 Session ID 為 abc-123-def-456。", tokens: 10, importance: 0.03},
+    {text: "他們索取了關於東亞海平面上升預測的具體數據。", tokens: 14, importance: 0.95},
+    {text: "API 響應的延遲時間為 230 毫秒。", tokens: 8, importance: 0.08},
+    {text: "使用者點擊了「了解更多」按鈕共三次。", tokens: 10, importance: 0.15},
+    {text: "他們希望獲得有關防範自家淹水的可行實用建議。", tokens: 10, importance: 0.88}
+];
+
+let SENTENCES = SENTENCES_EN;
+let step = 0;
+let threshold = 0.4;
+
+const STR_LANGS = {
+    en: {
+        stepReady: 'Ready — step through the Attn-GS pipeline.',
+        step1: 'Step 1: Input sentences loaded. The marking model will analyze attention patterns.',
+        step2: 'Step 2: Marking model scored each sentence using internal attention patterns. High = task-relevant, Low = noise.',
+        step3: 'Step 3: Compression model strips sentences below threshold. Crossed-out sentences are permanently removed.',
+        step4: 'Step 4: Compressed prompt sent to LLM. The green text below is ALL the LLM knows. Everything else is gone forever.',
+        ratioDesc: '{ratio}× compression ratio — {percent}% tokens removed',
+        fpTitle: '📄 What the LLM Actually Receives (Final Compressed Prompt)',
+        fpLostTitle: '🚫 Permanently Lost — The LLM will never see these:',
+        noSentences: 'No sentences survived compression.',
+        nothingLost: 'Nothing lost.'
+    },
+    zh: {
+        stepReady: '就緒 — 逐步探索 Attn-GS 管道。',
+        step1: '步驟 1：輸入句子載入完成。評估模型將分析注意力模式。',
+        step2: '步驟 2：評估模型使用內部注意力模式為每句話評分。高分 = 任務相關，低分 = 噪聲。',
+        step3: '步驟 3：壓縮模型剔除低於閾值的句子。被劃掉的句子將被實體刪除。',
+        step4: '步驟 4：壓縮後的提示詞發送給 LLM。下方綠色文本是 LLM 所知道的全部內容。其他一切已永遠消失。',
+        ratioDesc: '{ratio} 倍壓縮率 — 移除了 {percent}% 的 Token',
+        fpTitle: '📄 LLM 實際收到的內容 (最終壓縮後提示詞)',
+        fpLostTitle: '🚫 永久遺失 — LLM 永遠無法看到以下內容：',
+        noSentences: '沒有任何句子在壓縮中存活。',
+        nothingLost: '無遺失內容。'
+    }
+};
+
+function updateThresh(val){
+    threshold = parseFloat(val);
+    document.getElementById('thresh-val').textContent = val;
+    if(step >= 2) renderScored();
+    if(step >= 3) applyCompression();
+}
+
+function renderSentences(){
+    const el = document.getElementById('sentences');
+    el.innerHTML = '';
+    SENTENCES.forEach((s, i) => {
+        const d = document.createElement('div');
+        d.className = 'sent';
+        d.id = 'sent-' + i;
+        d.innerHTML = `
+            <div class="sent-text">${s.text}</div>
+            <div class="sent-score" id="score-${i}" style="visibility:hidden">${s.importance.toFixed(2)}</div>
+            <div class="sent-bar" id="bar-${i}" style="width:0%"></div>`;
+        el.appendChild(d);
+    });
+}
+
+function renderScored(){
+    SENTENCES.forEach((s, i) => {
+        const scoreEl = document.getElementById('score-' + i);
+        const barEl = document.getElementById('bar-' + i);
+        const sentEl = document.getElementById('sent-' + i);
+        if(scoreEl) scoreEl.style.visibility = 'visible';
+        if(barEl) barEl.style.width = (s.importance * 100) + '%';
+        if(sentEl) sentEl.className = 'sent ' + (s.importance >= threshold ? 'high' : 'low');
+    });
+}
+
+function applyCompression(){
+    let keptTokens = 0;
+    const totalTokens = SENTENCES.reduce((a, s) => a + s.tokens, 0);
+    SENTENCES.forEach((s, i) => {
+        const sentEl = document.getElementById('sent-' + i);
+        if(sentEl) {
+            if(s.importance >= threshold){
+                sentEl.className = 'sent kept';
+                keptTokens += s.tokens;
+            } else {
+                sentEl.className = 'sent stripped';
+            }
+        }
+    });
+    document.getElementById('compare').style.display = 'grid';
+    document.getElementById('tok-before').textContent = totalTokens;
+    document.getElementById('tok-after').textContent = keptTokens;
+    const ratio = (totalTokens / keptTokens).toFixed(1);
+    const percent = ((1 - keptTokens/totalTokens)*100).toFixed(0);
+    document.getElementById('ratio-desc').textContent = STR_LANGS[currentLang].ratioDesc.replace('{ratio}', ratio).replace('{percent}', percent);
+}
+
+function processStep(){
+    step++;
+    document.querySelectorAll('.pipe-stage').forEach(s=>s.classList.remove('active'));
+
+    if(step === 1){
+        const ps1 = document.getElementById('ps1');
+        if(ps1) ps1.classList.add('active');
+        renderSentences();
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step1;
+    }
+    else if(step === 2){
+        const ps1 = document.getElementById('ps1');
+        if(ps1) ps1.classList.add('active');
+        renderScored();
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step2;
+    }
+    else if(step === 3){
+        const ps2 = document.getElementById('ps2');
+        if(ps2) ps2.classList.add('active');
+        applyCompression();
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step3;
+    }
+    else if(step === 4){
+        const ps3 = document.getElementById('ps3');
+        if(ps3) ps3.classList.add('active');
+        // Build final prompt
+        let keptHTML = '';
+        let lostHTML = '';
+        SENTENCES.forEach((s, i) => {
+            if(s.importance >= threshold){
+                keptHTML += '<span class="kept-sent">' + s.text + '</span> ';
+            } else {
+                lostHTML += s.text + ' ';
+            }
+        });
+        const fp = document.getElementById('final-prompt');
+        if(fp) fp.style.display = 'block';
+        document.getElementById('fp-kept').innerHTML = keptHTML || `<em style="color:var(--txt2)">${STR_LANGS[currentLang].noSentences}</em>`;
+        document.getElementById('fp-lost').textContent = lostHTML.trim() || STR_LANGS[currentLang].nothingLost;
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step4;
+        document.getElementById('step-btn').disabled = true;
+    }
+    document.getElementById('prev-btn').disabled = (step <= 0);
+}
+
+function prevStep(){
+    if(step <= 0) return;
+    step--;
+    document.querySelectorAll('.pipe-stage').forEach(s=>s.classList.remove('active'));
+    document.getElementById('step-btn').disabled = false;
+
+    if(step === 0){
+        renderSentences();
+        document.getElementById('compare').style.display = 'none';
+        document.getElementById('final-prompt').style.display = 'none';
+        document.getElementById('status').textContent = STR_LANGS[currentLang].stepReady;
+    }
+    else if(step === 1){
+        const ps1 = document.getElementById('ps1');
+        if(ps1) ps1.classList.add('active');
+        renderSentences();
+        document.getElementById('compare').style.display = 'none';
+        document.getElementById('final-prompt').style.display = 'none';
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step1;
+    }
+    else if(step === 2){
+        const ps1 = document.getElementById('ps1');
+        if(ps1) ps1.classList.add('active');
+        renderScored();
+        document.getElementById('compare').style.display = 'none';
+        document.getElementById('final-prompt').style.display = 'none';
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step2;
+    }
+    else if(step === 3){
+        const ps2 = document.getElementById('ps2');
+        if(ps2) ps2.classList.add('active');
+        applyCompression();
+        document.getElementById('final-prompt').style.display = 'none';
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step3;
+    }
+    document.getElementById('prev-btn').disabled = (step <= 0);
+}
+
+function resetSim(){
+    step = 0;
+    document.getElementById('step-btn').disabled = false;
+    document.getElementById('prev-btn').disabled = true;
+    document.getElementById('status').textContent = STR_LANGS[currentLang].stepReady;
+    document.getElementById('compare').style.display = 'none';
+    const fp = document.getElementById('final-prompt');
+    if(fp) fp.style.display = 'none';
+    document.querySelectorAll('.pipe-stage').forEach(s=>s.classList.remove('active'));
+    renderSentences();
+}
+
+function updatePageTranslations(lang) {
+    if (lang === 'zh') {
+        SENTENCES = SENTENCES_ZH;
+    } else {
+        SENTENCES = SENTENCES_EN;
+    }
+    const fpTitleEl = document.getElementById('fp-title-el');
+    if(fpTitleEl) fpTitleEl.textContent = STR_LANGS[lang].fpTitle;
+    const fpLostTitleEl = document.getElementById('fp-lost-title-el');
+    if(fpLostTitleEl) fpLostTitleEl.textContent = STR_LANGS[lang].fpLostTitle;
+    resetSim();
+}
+
+renderSentences();
+</script>
+
+<script>
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function injectLangSelector() {
+    const selector = document.createElement('div');
+    selector.className = 'lang-selector';
+    selector.innerHTML = `
+        <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">繁中</button>
+    `;
+    document.body.appendChild(selector);
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--bdr, rgba(255,255,255,0.1));
+            border-radius: 8px;
+            padding: 3px;
+            z-index: 1000;
+        }
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: #7a7a90;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .lang-btn:hover {
+            color: #e8e8ed;
+        }
+        .lang-btn.active {
+            background: var(--stream, #f43f5e);
+            color: #fff !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+    const targetBtn = document.getElementById('lang-' + lang);
+    if(targetBtn) targetBtn.classList.add('active');
+    
+    document.querySelectorAll('[data-en]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+    });
+    
+    document.querySelectorAll('[data-en-html]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+    });
+
+    if (typeof updatePageTranslations === 'function') {
+        updatePageTranslations(lang);
+    }
+}
+
+injectLangSelector();
+setLanguage(currentLang);
+</script>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek V4 — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#08080d;--card:rgba(255,255,255,0.03);--txt:#e8e8ed;--txt2:#7a7a90;--bdr:rgba(255,255,255,0.07);--accent:#8b5cf6;--csa:#60a5fa;--hca:#f472b6;--li:#fbbf24;--sw:#34d399}
+        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+        body::before{content:'';position:fixed;bottom:-30%;left:-10%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(139,92,246,0.06),transparent 70%);pointer-events:none}
+        .back{position:fixed;top:20px;left:20px;color:var(--txt2);text-decoration:none;font-size:13px;font-weight:500;z-index:10;padding:8px 16px;border:1px solid var(--bdr);border-radius:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);transition:all .2s}
+        .back:hover{color:var(--txt);border-color:rgba(255,255,255,0.15)}
+        .ctr{max-width:1100px;margin:0 auto;padding:60px 24px 40px}
+        .hdr{margin-bottom:32px}
+        .hdr-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+        .hdr h1{font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+        .hdr p{color:var(--txt2);font-size:14px;line-height:1.6;max-width:700px}
+        .summary{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-bottom:28px}
+        .summary .desc{font-size:13px;color:var(--txt2);line-height:1.6}
+        .eq{font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 12px;border-radius:8px;margin-top:8px;display:inline-block}
+        .eq-csa{background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.15);color:#93c5fd}
+        .eq-hca{background:rgba(244,114,182,0.08);border:1px solid rgba(244,114,182,0.15);color:#f9a8d4}
+        .eq-li{background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:#fde68a}
+        .ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:28px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:16px 20px}
+        .btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .2s}
+        .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+        .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+        .btn-sec{background:rgba(255,255,255,0.08);color:var(--txt);font-weight:600}
+        .btn-sec:hover{background:rgba(255,255,255,0.12)}
+        .status{font-size:12px;color:var(--txt2);font-style:italic;margin-left:auto}
+        .section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);margin-bottom:10px;margin-top:20px}
+        /* Input stream */
+        .stream{display:flex;gap:4px;flex-wrap:wrap;padding:12px;background:var(--card);border:1px solid var(--bdr);border-radius:10px;margin-bottom:20px;min-height:42px}
+        .stok{padding:5px 10px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);transition:all .3s}
+        .stok.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 12px rgba(139,92,246,0.3)}
+        .stok.done{opacity:.3}
+        /* Pipeline */
+        .pipeline{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+        .pipe-card{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px;position:relative;overflow:hidden}
+        .pipe-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .pipe-card.csa-card::before{background:linear-gradient(90deg,var(--csa),transparent)}
+        .pipe-card.hca-card::before{background:linear-gradient(90deg,var(--hca),transparent)}
+        .pipe-card.li-card::before{background:linear-gradient(90deg,var(--li),transparent)}
+        .pipe-card.sw-card::before{background:linear-gradient(90deg,var(--sw),transparent)}
+        .pipe-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+        .csa-card .pipe-title{color:var(--csa)}
+        .hca-card .pipe-title{color:var(--hca)}
+        .li-card .pipe-title{color:var(--li)}
+        .sw-card .pipe-title{color:var(--sw)}
+        .pipe-desc{font-size:11px;color:var(--txt2);margin-bottom:12px;line-height:1.5}
+        .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+        /* Compressed blocks */
+        .blocks{display:flex;gap:6px;flex-wrap:wrap;min-height:40px}
+        .blk{height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;transition:all .3s;padding:0 8px;border:2px solid}
+        .blk-csa{border-color:rgba(96,165,250,0.3);background:rgba(96,165,250,0.08);color:var(--csa);min-width:50px}
+        .blk-hca{border-color:rgba(244,114,182,0.3);background:rgba(244,114,182,0.08);color:var(--hca);min-width:30px}
+        .blk.selected{box-shadow:0 0 15px rgba(251,191,36,0.3);border-color:var(--li);background:rgba(251,191,36,0.15);color:var(--li)}
+        .blk.scored{position:relative}
+        .blk.scored::after{content:attr(data-score);position:absolute;top:-12px;right:-4px;font-size:8px;background:var(--li);color:#000;padding:1px 4px;border-radius:4px;font-weight:700}
+        /* Stats */
+        .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+        .stat{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:14px;text-align:center}
+        .stat-val{font-size:24px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-bottom:2px}
+        .stat-label{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px}
+        .stat:nth-child(1) .stat-val{color:var(--csa)}
+        .stat:nth-child(2) .stat-val{color:var(--hca)}
+        .stat:nth-child(3) .stat-val{color:var(--li)}
+        .stat:nth-child(4) .stat-val{color:var(--sw)}
+        /* Layer diagram */
+        .layers{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;margin-bottom:20px}
+        .layer{padding:8px 14px;border-radius:8px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;border:2px solid;transition:all .3s}
+        .layer-csa{border-color:rgba(96,165,250,0.3);color:var(--csa);background:rgba(96,165,250,0.06)}
+        .layer-hca{border-color:rgba(244,114,182,0.3);color:var(--hca);background:rgba(244,114,182,0.06)}
+        .layer.active-layer{transform:scale(1.1);box-shadow:0 0 20px rgba(139,92,246,0.3)}
+        .layer-arrow{color:rgba(255,255,255,0.15);font-size:16px}
+        /* Properties */
+        .props{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-top:20px}
+        .props h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px}
+        .prop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+        .prop{font-size:12px;padding:8px 12px;border-radius:8px;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+        .prop.yes{background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.12);color:#6ee7b7}
+        .prop.no{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.12);color:#fca5a5}
+        @media(max-width:768px){.pipeline{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+    </style>
+</head>
+<body>
+<a href="index.html" class="back" data-en="← All Methods" data-zh="← 返回所有方法">← All Methods</a>
+<div class="ctr">
+    <div class="hdr">
+        <div class="hdr-label" data-en="DeepSeek AI, 2025" data-zh="DeepSeek AI, 2025">DeepSeek AI, 2025</div>
+        <h1 data-en="DeepSeek V4 Visualizer" data-zh="DeepSeek V4 視覺化工具">DeepSeek V4 Visualizer</h1>
+        <p data-en="HCA, CSA, Sliding Window & Lightning Indexer — a hybrid attention architecture enabling 1M-token context with near-linear scaling." data-zh="HCA、CSA、滑動窗口與 Lightning Indexer — 一種混合注意力架構，實現具備近乎線性複雜度的百萬 Token 超長上下文。">HCA, CSA, Sliding Window & Lightning Indexer — a hybrid attention architecture enabling 1M-token context with near-linear scaling.</p>
+    </div>
+    <div class="summary">
+        <div class="desc" data-en="DeepSeek V4 interleaves two complementary attention types: CSA (Compressed Sparse Attention) with 4:1 compression and top-k selection via the Lightning Indexer, and HCA (Heavily Compressed Attention) with 128:1 compression for cheap global context. A local sliding window in CSA layers preserves immediate context precision." data-zh="DeepSeek V4 交錯使用兩種互補的注意力機制：CSA（壓縮稀疏注意力），具備 4:1 的壓縮率並使用 Lightning Indexer 進行 Top-K 檢索；以及 HCA（重度壓縮注意力），具備 128:1 的壓縮率以提供極低運算成本的全局上下文。此外，CSA 層內建了局部的滑動窗口，用以保留即時上下文的精確度。">DeepSeek V4 interleaves two complementary attention types: <strong>CSA</strong> (Compressed Sparse Attention) with 4:1 compression and top-k selection via the <strong>Lightning Indexer</strong>, and <strong>HCA</strong> (Heavily Compressed Attention) with 128:1 compression for cheap global context. A local <strong>sliding window</strong> in CSA layers preserves immediate context precision.</div>
+        <div><span class="eq eq-csa" data-en="CSA: 4:1 compress → Lightning top-k → sparse attn" data-zh="CSA：4:1 壓縮 → Lightning Top-K 檢索 → 稀疏注意力">CSA: 4:1 compress → Lightning top-k → sparse attn</span></div>
+        <div><span class="eq eq-hca" data-en="HCA: 128:1 compress → dense attn (cheap global)" data-zh="HCA：128:1 壓縮 → 稠密注意力 (低成本全局上下文)">HCA: 128:1 compress → dense attn (cheap global)</span></div>
+        <div><span class="eq eq-li" data-en="Lightning Indexer: FP4 ReLU dot-product scorer" data-zh="Lightning Indexer：FP4 精度 ReLU 點積評分器">Lightning Indexer: FP4 ReLU dot-product scorer</span></div>
+    </div>
+    <div class="ctrl">
+        <button class="btn" id="step-btn" onclick="processStep()" data-en="▶ Process Next Step" data-zh="▶ 執行下一步">▶ Process Next Step</button>
+        <button class="btn btn-sec" onclick="resetSim()" data-en="↺ Reset" data-zh="↺ 重設">↺ Reset</button>
+        <div class="status" id="status" data-en="Ready — step through the hybrid attention pipeline." data-zh="就緒 — 逐步探索混合注意力管道。">Ready — step through the hybrid attention pipeline.</div>
+    </div>
+
+    <div class="section-label" data-en="Interleaved Layer Architecture" data-zh="交錯層架構">Interleaved Layer Architecture</div>
+    <div class="layers" id="layers"></div>
+
+    <div class="section-label" data-en="Input Token Stream (a real passage entering the model)" data-zh="輸入 Token 串流 (進入模型的真實語句)">Input Token Stream (a real passage entering the model)</div>
+    <div class="stream" id="stream"></div>
+
+    <div class="stats" id="stats">
+        <div class="stat"><div class="stat-val" id="s-csa">0</div><div class="stat-label" data-en="CSA Blocks (4:1)" data-zh="CSA 區塊 (4:1)">CSA Blocks (4:1)</div></div>
+        <div class="stat"><div class="stat-val" id="s-hca">0</div><div class="stat-label" data-en="HCA Blocks (128:1)" data-zh="HCA 區塊 (128:1)">HCA Blocks (128:1)</div></div>
+        <div class="stat"><div class="stat-val" id="s-li">0</div><div class="stat-label" data-en="LI Selected" data-zh="LI 篩選區塊數">LI Selected</div></div>
+        <div class="stat"><div class="stat-val" id="s-sw">4</div><div class="stat-label" data-en="Sliding Window" data-zh="滑動窗口大小">Sliding Window</div></div>
+    </div>
+
+    <div class="pipeline">
+        <div class="pipe-card csa-card">
+            <div class="pipe-title"><span class="dot" style="background:var(--csa)"></span><span data-en="CSA — Compressed Sparse Attention" data-zh="CSA — 壓縮稀疏注意力">CSA — Compressed Sparse Attention</span></div>
+            <div class="pipe-desc" data-en="4:1 compression via learned softmax-gated pooling. Every 4 tokens → 1 compressed block. Lightning Indexer selects top-k relevant blocks for sparse attention." data-zh="透過學習到的 Softmax 門控池化進行 4:1 壓縮。每 4 個 Token 被聚合為 1 個壓縮區塊。Lightning Indexer 隨後選出與目前查詢最相關的 Top-K 個區塊以計算稀疏注意力。">4:1 compression via learned softmax-gated pooling. Every 4 tokens → 1 compressed block. Lightning Indexer selects top-k relevant blocks for sparse attention.</div>
+            <div class="section-label" style="margin-top:0" data-en="Compressed Blocks (4:1)" data-zh="壓縮區塊 (4:1)">Compressed Blocks (4:1)</div>
+            <div class="blocks" id="csa-blocks"></div>
+        </div>
+        <div class="pipe-card hca-card">
+            <div class="pipe-title"><span class="dot" style="background:var(--hca)"></span><span data-en="HCA — Heavily Compressed Attention" data-zh="HCA — 重度壓縮注意力">HCA — Heavily Compressed Attention</span></div>
+            <div class="pipe-desc" data-en="128:1 compression. Dense attention over ultra-compressed entries — acts as a cheap global 'memory' layer. Retains broad summaries of entire context." data-zh="128:1 的極限壓縮率。在此層對超重度壓縮的項目進行稠密注意力計算 — 充當低運算成本的全局「記憶」層。能長期保留整個文檔的宏觀摘要。">128:1 compression. Dense attention over ultra-compressed entries — acts as a cheap global "memory" layer. Retains broad summaries of entire context.</div>
+            <div class="section-label" style="margin-top:0" data-en="Ultra-Compressed Blocks (128:1 simulated)" data-zh="超重度壓縮區塊 (模擬 128:1)">Ultra-Compressed Blocks (128:1 simulated)</div>
+            <div class="blocks" id="hca-blocks"></div>
+        </div>
+        <div class="pipe-card li-card" style="grid-column:1/-1">
+            <div class="pipe-title"><span class="dot" style="background:var(--li)"></span><span data-en="Lightning Indexer — FP4 Relevance Scoring" data-zh="Lightning Indexer — FP4 相關性評分">Lightning Indexer — FP4 Relevance Scoring</span></div>
+            <div class="pipe-desc" data-en="Lightweight ReLU-activated dot-product in low precision (FP4). Rapidly scores all compressed blocks and selects top-k most relevant for full attention computation. The key to near-linear O(N·k) complexity." data-zh="利用極低精度（FP4）進行輕量化、具備 ReLU 激活函數的點積運算。快速對所有壓縮區塊評分，並篩選出最相關的 Top-K 個區塊送入完整注意力計算中。這是實現近乎線性 O(N·k) 複雜度的核心關鍵。">Lightweight ReLU-activated dot-product in low precision (FP4). Rapidly scores all compressed blocks and selects top-k most relevant for full attention computation. The key to near-linear O(N·k) complexity.</div>
+            <div class="blocks" id="li-blocks"></div>
+        </div>
+    </div>
+
+    <div class="props">
+        <h3 data-en="Method Properties" data-zh="方法屬性">Method Properties</h3>
+        <div class="prop-grid">
+            <div class="prop yes">✅ <div data-en="KV Cache: 90% memory reduction via dense chunking (CSA/HCA compression)." data-zh="KV 快取：透過分塊壓縮（CSA/HCA）減少達 90% 的記憶體佔用。"><strong>KV Cache:</strong> 90% memory reduction via dense chunking (CSA/HCA compression).</div></div>
+            <div class="prop yes">✅ <div data-en="Quadratic Scaling: Lightning Indexer enables sparse top-k selection — near-linear O(N·k)." data-zh="二次計算複雜度：Lightning Indexer 實現稀疏 Top-K 檢索，達到近乎線性的 O(N·k)。"><strong>Quadratic Scaling:</strong> Lightning Indexer enables sparse top-k selection — near-linear O(N·k).</div></div>
+            <div class="prop yes">✅ <div data-en="Immediate Context: Uncompressed sliding window in CSA keeps recent words exact." data-zh="即時上下文：CSA 層內部的未壓縮滑動窗口，確保最近生成的字詞完全精確。"><strong>Immediate Context:</strong> Uncompressed sliding window in CSA keeps recent words exact.</div></div>
+            <div class="prop yes">✅ <div data-en="Long-Term Amnesia: Nothing permanently deleted. HCA retains broad summaries with retrievable CSA details." data-zh="長程失憶問題：不會永久刪除任何資訊。HCA 保存全局宏觀摘要，細節可自 CSA 區塊中尋回。"><strong>Long-Term Amnesia:</strong> Nothing permanently deleted. HCA retains broad summaries with retrievable CSA details.</div></div>
+            <div class="prop no">❌ <div data-en="Lost in Middle: Synthesizing deeply buried facts from compressed blocks still degrades reasoning accuracy." data-zh="中段遺忘問題：若需要從多個高度壓縮的區塊中合成深埋的細節事實，模型的推理準確度仍會退化。"><strong>Lost in Middle:</strong> Synthesizing deeply buried facts from compressed blocks still degrades reasoning accuracy.</div></div>
+        </div>
+    </div>
+</div>
+<script>
+const WORDS_EN = ["The","capital","of","France","is","Paris,","known","for","its","Eiffel","Tower.","Meanwhile,","Tokyo","is","the","capital","of","Japan,","famous","for","cherry","blossoms.","Berlin","serves","as","Germany's","capital,","rich","in","history.","Rome","is"];
+const WORDS_ZH = ["法國","的","首都","是","巴黎，","以","艾菲爾","鐵塔","聞名。","與此同時，","東京","是","日本","的","首都，","以","櫻花","著稱。","柏林","是","德國","的","首都，","有著","豐富","的","歷史。","羅馬","是","義大利","的","首都"];
+
+const BLOCK_SUMMARIES_EN = [
+    '"The capital of France"',
+    '"is Paris, known for"',
+    '"its Eiffel Tower. Meanwhile,"',
+    '"Tokyo is the capital"',
+    '"of Japan, famous for"',
+    '"cherry blossoms. Berlin serves"',
+    '"as Germany\'s capital, rich"',
+    '"in history. Rome is"'
+];
+const BLOCK_SUMMARIES_ZH = [
+    '「法國的首都」',
+    '「是巴黎，以」',
+    '「艾菲爾鐵塔聞名。同時」',
+    '「東京是日本的」',
+    '「首都，以櫻花」',
+    '「著稱。柏林是」',
+    '「德國的首都，有著」',
+    '「豐富的歷史。羅馬是」'
+];
+
+let WORDS = WORDS_EN;
+let BLOCK_SUMMARIES = BLOCK_SUMMARIES_EN;
+
+const N_TOKENS = 32;
+const CSA_RATIO = 4;
+const TOP_K = 3;
+const LAYER_PATTERN = ['CSA','HCA','CSA','CSA','HCA','CSA'];
+
+let step = 0;
+
+const STR_LANGS = {
+    en: {
+        stepReady: 'Ready — step through the hybrid attention pipeline.',
+        step1: 'Step 1: All {count} tokens enter the hybrid attention pipeline.',
+        step2: 'Step 2: CSA compresses {count} tokens → {blocks} blocks (4:1 softmax-gated pooling). Each block summarizes 4 words.',
+        step3: 'Step 3: Lightning Indexer (FP4) scores all blocks by relevance → selects top-{k} (France, Tokyo, Germany\'s capital) for sparse attention.',
+        step4: 'Step 4: HCA applies 128:1 compression → 1 global summary. The model now knows "this text is about world capitals" without storing every word.',
+        step5: 'Step 5: Sliding window preserves the last 4 words uncompressed for immediate context precision.',
+        step6: 'Pipeline complete! CSA found the most relevant capital-city facts, HCA knows the broad topic, sliding window has the exact recent words.',
+        globalSummary: 'Global Summary: "Text about world capitals and landmarks"',
+        checkIcon: ' ✓'
+    },
+    zh: {
+        stepReady: '就緒 — 逐步探索混合注意力管道。',
+        step1: '步驟 1：所有 {count} 個 Token 進入混合注意力管道。',
+        step2: '步驟 2：CSA 將 {count} 個 Token 壓縮成 {blocks} 個區塊 (4:1 Softmax 門控池化)。每個區塊代表 4 個字。',
+        step3: '步驟 3：Lightning Indexer (FP4) 根據相關性評估所有區塊 → 篩選出 Top-{k}（法國、東京、德國首都）進行稀疏注意力計算。',
+        step4: '步驟 4：HCA 進行 128:1 深度壓縮 → 生成 1 個全域摘要。模型現在知道「此文本是關於世界首都」，而無需保存每個字詞。',
+        step5: '步驟 5：滑動窗口保留了最後 4 個單字未壓縮，以確保即時上下文的精確度。',
+        step6: '管道處理完成！CSA 找到了最相關的首都事實，HCA 掌握了宏觀主題，滑動窗口則保留了最近的確切字詞。',
+        globalSummary: '全域摘要：「關於世界首都與地標的文本內容」',
+        checkIcon: ' 選中'
+    }
+};
+
+function initLayers(){
+    const el = document.getElementById('layers');
+    el.innerHTML = '';
+    LAYER_PATTERN.forEach((t,i)=>{
+        if(i > 0){
+            const arr = document.createElement('span');
+            arr.className = 'layer-arrow';
+            arr.textContent = '→';
+            el.appendChild(arr);
+        }
+        const d = document.createElement('div');
+        d.className = 'layer layer-' + t.toLowerCase();
+        d.id = 'layer-' + i;
+        d.textContent = `L${i+1}: ${t}`;
+        el.appendChild(d);
+    });
+}
+
+function initStream(){
+    const el = document.getElementById('stream');
+    el.innerHTML = '';
+    for(let i=0;i<N_TOKENS;i++){
+        const d = document.createElement('span');
+        d.className = 'stok';
+        d.id = 'stok-'+i;
+        d.textContent = WORDS[i] || '';
+        el.appendChild(d);
+    }
+}
+
+function processStep(){
+    step++;
+    
+    if(step === 1){
+        for(let i=0;i<N_TOKENS;i++){
+            const el = document.getElementById('stok-'+i);
+            if(el) el.className = 'stok active';
+        }
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step1.replace('{count}', N_TOKENS);
+    }
+    else if(step === 2){
+        for(let i=0;i<N_TOKENS;i++) {
+            const el = document.getElementById('stok-'+i);
+            if(el) el.className = 'stok done';
+        }
+        const csaEl = document.getElementById('csa-blocks');
+        csaEl.innerHTML = '';
+        const nBlocks = Math.ceil(N_TOKENS / CSA_RATIO);
+        for(let i=0;i<nBlocks;i++){
+            const d = document.createElement('div');
+            d.className = 'blk blk-csa';
+            d.textContent = 'B'+i+': '+(BLOCK_SUMMARIES[i] || '');
+            d.style.animation = 'pop 0.3s ease';
+            d.style.minWidth = '120px';
+            d.style.fontSize = '9px';
+            csaEl.appendChild(d);
+        }
+        document.getElementById('s-csa').textContent = nBlocks;
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step2.replace('{count}', N_TOKENS).replace('{blocks}', nBlocks);
+        const l0 = document.getElementById('layer-0');
+        if(l0) l0.classList.add('active-layer');
+    }
+    else if(step === 3){
+        const csaBlocks = document.getElementById('csa-blocks').children;
+        const nBlocks = csaBlocks.length;
+        const scores = [];
+        // Give meaningful scores: geography-query-relevant blocks score higher
+        const relevance = [0.91, 0.34, 0.22, 0.87, 0.45, 0.38, 0.72, 0.55];
+        for(let i=0;i<nBlocks;i++){
+            const score = (relevance[i] || Math.random()).toFixed(2);
+            scores.push({idx:i, score:parseFloat(score)});
+            if(csaBlocks[i]){
+                csaBlocks[i].classList.add('scored');
+                csaBlocks[i].setAttribute('data-score', score);
+            }
+        }
+        scores.sort((a,b)=>b.score-a.score);
+        const selected = scores.slice(0, TOP_K).map(s=>s.idx);
+        
+        const liEl = document.getElementById('li-blocks');
+        liEl.innerHTML = '';
+        for(let i=0;i<nBlocks;i++){
+            const d = document.createElement('div');
+            d.className = 'blk blk-csa' + (selected.includes(i) ? ' selected' : '');
+            d.textContent = 'B'+i+': ' + (BLOCK_SUMMARIES[i] || '');
+            d.style.minWidth = '100px';
+            d.style.fontSize = '9px';
+            if(selected.includes(i)) d.textContent += STR_LANGS[currentLang].checkIcon;
+            liEl.appendChild(d);
+        }
+        document.getElementById('s-li').textContent = TOP_K;
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step3.replace('{k}', TOP_K);
+    }
+    else if(step === 4){
+        const hcaEl = document.getElementById('hca-blocks');
+        hcaEl.innerHTML = '';
+        const d = document.createElement('div');
+        d.className = 'blk blk-hca';
+        d.textContent = STR_LANGS[currentLang].globalSummary;
+        d.style.animation = 'pop 0.3s ease';
+        d.style.padding = '0 16px';
+        d.style.minWidth = '200px';
+        d.style.fontSize = '10px';
+        hcaEl.appendChild(d);
+        document.getElementById('s-hca').textContent = '1';
+        const l0 = document.getElementById('layer-0');
+        if(l0) l0.classList.remove('active-layer');
+        const l1 = document.getElementById('layer-1');
+        if(l1) l1.classList.add('active-layer');
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step4;
+    }
+    else if(step === 5){
+        const l1 = document.getElementById('layer-1');
+        if(l1) l1.classList.remove('active-layer');
+        const l2 = document.getElementById('layer-2');
+        if(l2) l2.classList.add('active-layer');
+        for(let i=N_TOKENS-4;i<N_TOKENS;i++){
+            const el = document.getElementById('stok-'+i);
+            if(el){
+                el.className = 'stok';
+                el.style.background = 'rgba(52,211,153,0.15)';
+                el.style.borderColor = 'var(--sw)';
+                el.style.color = '#34d399';
+            }
+        }
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step5;
+    }
+    else if(step === 6){
+        document.querySelectorAll('.layer').forEach(l=>l.classList.remove('active-layer'));
+        document.getElementById('status').textContent = STR_LANGS[currentLang].step6;
+        document.getElementById('step-btn').disabled = true;
+    }
+}
+
+function resetSim(){
+    step = 0;
+    document.getElementById('step-btn').disabled = false;
+    document.getElementById('status').textContent = STR_LANGS[currentLang].stepReady;
+    document.getElementById('csa-blocks').innerHTML = '';
+    document.getElementById('hca-blocks').innerHTML = '';
+    document.getElementById('li-blocks').innerHTML = '';
+    document.getElementById('s-csa').textContent = '0';
+    document.getElementById('s-hca').textContent = '0';
+    document.getElementById('s-li').textContent = '0';
+    document.getElementById('s-sw').textContent = '4';
+    document.querySelectorAll('.layer').forEach(l=>l.classList.remove('active-layer'));
+    initStream();
+}
+
+function updatePageTranslations(lang) {
+    if (lang === 'zh') {
+        WORDS = WORDS_ZH;
+        BLOCK_SUMMARIES = BLOCK_SUMMARIES_ZH;
+    } else {
+        WORDS = WORDS_EN;
+        BLOCK_SUMMARIES = BLOCK_SUMMARIES_EN;
+    }
+    resetSim();
+}
+
+initLayers();
+</script>
+
+<script>
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function injectLangSelector() {
+    const selector = document.createElement('div');
+    selector.className = 'lang-selector';
+    selector.innerHTML = `
+        <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">繁中</button>
+    `;
+    document.body.appendChild(selector);
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--bdr, rgba(255,255,255,0.1));
+            border-radius: 8px;
+            padding: 3px;
+            z-index: 1000;
+        }
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: #7a7a90;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .lang-btn:hover {
+            color: #e8e8ed;
+        }
+        .lang-btn.active {
+            background: var(--stream, #8b5cf6);
+            color: #fff !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+    const targetBtn = document.getElementById('lang-' + lang);
+    if(targetBtn) targetBtn.classList.add('active');
+    
+    document.querySelectorAll('[data-en]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+    });
+    
+    document.querySelectorAll('[data-en-html]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+    });
+
+    if (typeof updatePageTranslations === 'function') {
+        updatePageTranslations(lang);
+    }
+}
+
+injectLangSelector();
+setLanguage(currentLang);
+</script>
+</body>
+</html>

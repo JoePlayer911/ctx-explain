@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ms-PoE — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#08080d;--card:rgba(255,255,255,0.03);--txt:#e8e8ed;--txt2:#7a7a90;--bdr:rgba(255,255,255,0.07);--accent:#06b6d4;--head1:#06b6d4;--head2:#8b5cf6;--head3:#f59e0b;--head4:#f43f5e;--decay:#ef4444}
+        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+        body::before{content:'';position:fixed;top:-30%;right:-20%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(6,182,212,0.06),transparent 70%);pointer-events:none}
+        .back{position:fixed;top:20px;left:20px;color:var(--txt2);text-decoration:none;font-size:13px;font-weight:500;z-index:10;padding:8px 16px;border:1px solid var(--bdr);border-radius:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);transition:all .2s}
+        .back:hover{color:var(--txt);border-color:rgba(255,255,255,0.15)}
+        .ctr{max-width:1100px;margin:0 auto;padding:60px 24px 40px}
+        .hdr{margin-bottom:32px}
+        .hdr-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+        .hdr h1{font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+        .hdr p{color:var(--txt2);font-size:14px;line-height:1.6;max-width:700px}
+        .summary{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-bottom:28px}
+        .summary .desc{font-size:13px;color:var(--txt2);line-height:1.6}
+        .eq{font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.15);padding:8px 14px;border-radius:8px;color:#67e8f9;margin-top:10px;display:inline-block}
+        .ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:28px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:16px 20px}
+        .slider-g{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--txt2)}
+        .slider-g input[type=range]{width:160px;accent-color:var(--accent)}
+        .slider-g .val{color:var(--accent);font-family:'JetBrains Mono',monospace}
+        .btn{background:var(--accent);color:#000;border:none;padding:10px 20px;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .2s}
+        .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+        .section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);margin-bottom:10px}
+        /* Token positions */
+        .token-row{display:flex;gap:4px;margin-bottom:20px;overflow-x:auto;padding:12px;background:var(--card);border:1px solid var(--bdr);border-radius:10px}
+        .tpos{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:40px}
+        .tpos .idx{font-size:9px;color:var(--txt2);font-family:'JetBrains Mono',monospace}
+        .tpos .tok{width:36px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--txt)}
+        .tpos .tok.query{background:var(--accent);border-color:var(--accent);color:#000}
+        /* Heatmap grid */
+        .heads-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+        .head-panel{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:16px;position:relative;overflow:hidden}
+        .head-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .head-panel:nth-child(1)::before{background:linear-gradient(90deg,var(--head1),transparent)}
+        .head-panel:nth-child(2)::before{background:linear-gradient(90deg,var(--head2),transparent)}
+        .head-panel:nth-child(3)::before{background:linear-gradient(90deg,var(--head3),transparent)}
+        .head-panel:nth-child(4)::before{background:linear-gradient(90deg,var(--head4),transparent)}
+        .head-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+        .head-panel:nth-child(1) .head-title{color:var(--head1)}
+        .head-panel:nth-child(2) .head-title{color:var(--head2)}
+        .head-panel:nth-child(3) .head-title{color:var(--head3)}
+        .head-panel:nth-child(4) .head-title{color:var(--head4)}
+        .head-info{font-size:11px;color:var(--txt2);margin-bottom:10px}
+        .heatmap{display:flex;gap:3px;align-items:flex-end;height:80px}
+        .hbar{border-radius:3px 3px 0 0;min-width:16px;flex:1;transition:all .4s ease;position:relative}
+        .hbar-label{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--txt2);font-family:'JetBrains Mono',monospace;white-space:nowrap}
+        .hbar-val{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:8px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+        /* Decay curve */
+        .decay-panel{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px;margin-bottom:20px}
+        .decay-panel .head-title{color:var(--decay);margin-bottom:10px}
+        .canvas-wrap{position:relative;width:100%;height:200px}
+        canvas{width:100%;height:100%;border-radius:8px;background:rgba(0,0,0,0.3)}
+        /* Properties */
+        .props{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-top:20px}
+        .props h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px}
+        .prop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+        .prop{font-size:12px;padding:8px 12px;border-radius:8px;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+        .prop.yes{background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.12);color:#6ee7b7}
+        .prop.no{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.12);color:#fca5a5}
+        @media(max-width:768px){.heads-grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+<a href="index.html" class="back" data-en="← All Methods" data-zh="← 返回所有方法">← All Methods</a>
+<div class="ctr">
+    <div class="hdr">
+        <div class="hdr-label" data-en="NeurIPS 2024" data-zh="NeurIPS 2024">NeurIPS 2024</div>
+        <h1 data-en="Ms-PoE Visualizer" data-zh="Ms-PoE 視覺化工具">Ms-PoE Visualizer</h1>
+        <p data-en="'Found in the Middle: How Language Models Use Long Contexts Better via Plug-and-Play Positional Encoding'" data-zh="「發現在中段：大型語言模型如何透過即插即用的位置編碼更好地使用長上下文」">"Found in the Middle: How Language Models Use Long Contexts Better via Plug-and-Play Positional Encoding"</p>
+    </div>
+    <div class="summary">
+        <div class="desc" data-en="Standard RoPE causes attention weights to decay with distance — tokens in the middle of long inputs get 'lost.' Ms-PoE assigns different scaling ratios to different attention heads: some heads keep the original scale (preserving local precision), while others use rescaled positions to maintain long-range reach. This is training-free and plug-and-play." data-zh="標準的 RoPE 會導致注意力權重隨距離遞減 — 長輸入中段的 Token 就會因此「遺忘」。Ms-PoE 透過為不同的注意力頭（Attention Heads）分配不同的縮放比例（Scaling Ratios）來解決此問題：部分頭保持原始比例（保留局部精確度），而其他頭則使用縮放後的位置以維持長程的覆蓋範圍。這是一種無需訓練、即插即用的機制。">Standard RoPE causes attention weights to <strong>decay with distance</strong> — tokens in the middle of long inputs get "lost." Ms-PoE assigns <strong>different scaling ratios to different attention heads</strong>: some heads keep the original scale (preserving local precision), while others use rescaled positions to maintain long-range reach. This is <strong>training-free and plug-and-play</strong>.</div>
+        <div class="key">pos'(i, head_h) = pos(i) × scale_h</div>
+        <div class="key" style="margin-left:8px">scale_h ∈ {1.0, 0.5, 0.25, 0.1} per head</div>
+    </div>
+    <div class="summary" style="border-color:rgba(6,182,212,0.15);margin-bottom:28px">
+        <div class="desc" data-en-html="<strong style='color:var(--accent)'>What does the scale value mean?</strong><br>RoPE encodes positions by <em>rotating</em> vectors. The further apart two tokens are, the more their rotations diverge, causing attention to decay.<br><br><strong>Scale = 1.0 (original):</strong> Full rotation speed. Positions 10 and 200 look <em>very different</em> to the math → attention drops sharply with distance. Great for local word-order precision, but 'loses' middle tokens.<br><br><strong>Scale = 0.1 (rescaled):</strong> Rotation speed is 10× slower. Positions 10 and 200 now look <em>almost identical</em> → attention barely decays → the head can 'reach' token 1,000 with the same strength as token 10. This is <strong>'distant reach'</strong>.<br><br><strong>'Near-uniform attention'</strong> means the head looks at the <em>entire document equally</em>, finding broad concepts rather than specific local phrasing. The trade-off: it loses fine word-order precision." data-zh-html="<strong style='color:var(--accent)'>縮放比例 (Scale) 代表什麼意思？</strong><br>RoPE 藉由<em>旋轉</em>向量來對位置進行編碼。當兩個 Token 距離越遠時，它們的旋轉角度差異就越大，從而導致注意力權重衰減。<br><br><strong>Scale = 1.0 (原始狀態)：</strong> 全速旋轉。在數學上，位置 10 和 200 的向量看起來<em>截然不同</em> → 注意力隨距離急遽衰減。這對捕捉局部的詞序精確度很有幫助，但會「遺忘」長文件背後的中間 Token。<br><br><strong>Scale = 0.1 (位置縮放)：</strong> 旋轉速度慢了 10 倍。位置 10 和 200 看起來<em>幾乎相同</em> → 注意力幾乎不會隨距離衰減 → 該注意力頭能以跟 Token 10 相同的強度「觸及」Token 1000。這就是所謂的 <strong>「長程觸及 (distant reach)」</strong>。<br><br><strong>「近乎均勻的注意力」</strong> 意味著該注意力頭對整個<em>文檔的所有部分均等看待</em>，用於尋找宏觀的概念，而非特定的局部措辭。缺點是：它會失去微觀的詞序精確度。">
+            <strong style="color:var(--accent)">What does the scale value mean?</strong><br>
+            RoPE encodes positions by <em>rotating</em> vectors. The further apart two tokens are, the more their rotations diverge, causing attention to decay.<br><br>
+            <strong>Scale = 1.0 (original):</strong> Full rotation speed. Positions 10 and 200 look <em>very different</em> to the math → attention drops sharply with distance. Great for local word-order precision, but "loses" middle tokens.<br><br>
+            <strong>Scale = 0.1 (rescaled):</strong> Rotation speed is 10× slower. Positions 10 and 200 now look <em>almost identical</em> → attention barely decays → the head can "reach" token 1,000 with the same strength as token 10. This is <strong>"distant reach"</strong>.<br><br>
+            <strong>"Near-uniform attention"</strong> means the head looks at the <em>entire document equally</em>, finding broad concepts rather than specific local phrasing. The trade-off: it loses fine word-order precision.
+        </div>
+    </div>
+    <div class="ctrl">
+        <div class="slider-g">
+            <label><span data-en="Query Token Position: " data-zh="Query Token 位置: ">Query Token Position: </span><span class="val" id="qpos-val">15</span></label>
+            <input type="range" id="qpos" min="0" max="19" value="15" oninput="updateViz()">
+        </div>
+        <div class="slider-g">
+            <label><span data-en="Sequence Length: " data-zh="序列長度: ">Sequence Length: </span><span class="val" id="seqlen-val">20</span></label>
+            <input type="range" id="seqlen" min="8" max="32" value="20" oninput="updateViz()">
+        </div>
+        <button class="btn" onclick="randomize()" data-en="🎲 Randomize Scales" data-zh="🎲 隨機化 Scale 比例">🎲 Randomize Scales</button>
+    </div>
+
+    <div class="section-label" data-en="Token Sequence (query token highlighted)" data-zh="Token 序列 (高亮顯示 Query Token)">Token Sequence (query token highlighted)</div>
+    <div class="token-row" id="token-row"></div>
+
+    <div class="section-label" data-en="Attention Distribution per Head" data-zh="各注意力頭的注意力分布">Attention Distribution per Head</div>
+    <div class="heads-grid" id="heads-grid"></div>
+
+    <div class="decay-panel">
+        <div class="head-title" data-en="⚠ RoPE Attention Decay — Why Ms-PoE is Needed" data-zh="⚠ RoPE 注意力衰減 — 為什麼我們需要 Ms-PoE">⚠ RoPE Attention Decay — Why Ms-PoE is Needed</div>
+        <div style="font-size:12px;color:var(--txt2);margin-bottom:12px" data-en="Standard RoPE (scale=1.0) causes exponential decay with distance. Rescaled heads (lower scale values) flatten the decay curve, allowing the model to attend to distant tokens." data-zh="標準的 RoPE (scale=1.0) 會導致注意力隨距離呈指數衰減。縮放後的注意力頭（較低的 scale 值）能拉平衰減曲線，讓模型得以觸及遠處的 Token。">Standard RoPE (scale=1.0) causes exponential decay with distance. Rescaled heads (lower scale values) flatten the decay curve, allowing the model to attend to distant tokens.</div>
+        <div class="canvas-wrap"><canvas id="decay-canvas"></canvas></div>
+    </div>
+
+    <div class="props">
+        <h3 data-en="Method Properties" data-zh="方法屬性">Method Properties</h3>
+        <div class="prop-grid">
+            <div class="prop no">❌ <div data-en="KV Cache: Adjusts attention weights but still stores every token individually — memory grows linearly." data-zh="KV 快取：雖然調整了注意力權重，但仍需個別儲存每個 Token — 記憶體隨序列長度呈線性成長。"><strong>KV Cache:</strong> Adjusts attention weights but still stores every token individually — memory grows linearly.</div></div>
+            <div class="prop no">❌ <div data-en="Quadratic Scaling: No compression; still compares every word to every past word." data-zh="二次計算複雜度：沒有進行壓縮；仍需要對過去的每個字詞做全量兩兩比較。"><strong>Quadratic Scaling:</strong> No compression; still compares every word to every past word.</div></div>
+            <div class="prop yes">✅ <div data-en="Immediate Context: No compression used — exact wording perfectly preserved." data-zh="即時上下文：不使用壓縮 — 完美保留確切的原始措辭。"><strong>Immediate Context:</strong> No compression used — exact wording perfectly preserved.</div></div>
+            <div class="prop yes">✅ <div data-en="Long-Term Amnesia: All data retained in KV cache without deletion or blurring." data-zh="長程失憶問題：所有數據皆保留在 KV 快取中，不會被刪除或模糊化。"><strong>Long-Term Amnesia:</strong> All data retained in KV cache without deletion or blurring.</div></div>
+            <div class="prop yes">✅ <div data-en="Lost in Middle: Rescaling position indices across heads prevents attention decay mid-document." data-zh="中段遺忘問題：透過在不同注意力頭上縮放位置索引，防止注意力在文檔中段發生衰減。"><strong>Lost in Middle:</strong> Rescaling position indices across heads prevents attention decay mid-document.</div></div>
+        </div>
+    </div>
+</div>
+<script>
+const HEAD_COLORS = ['#06b6d4','#8b5cf6','#f59e0b','#f43f5e'];
+const WORDS = ["The","user","asked","for","a","detailed","report","on","quarterly","earnings","but","also","wanted","to","know","the","weather","in","Tokyo","today"];
+let scales = [1.0, 0.5, 0.25, 0.1];
+
+const STR_LANGS = {
+    en: {
+        headNames: ['Head 1 (Local)','Head 2 (Medium)','Head 3 (Wide)','Head 4 (Global)'],
+        distQuery: 'Distance from Query',
+        attnWeight: 'Attention Weight',
+        lostMiddle: '"Lost in the Middle" Zone',
+        infoTexts: [
+            'Full rotation speed → strong local bias, attention decays rapidly with distance',
+            'Rotation slowed 2×. Moderate long-range reach while still distinguishing nearby word order',
+            'Rotation slowed ~4×. Tokens far apart still look similar → good access to middle of document',
+            'Rotation nearly stopped. All positions look almost identical → near-uniform attention over entire document (finds broad concepts, loses word-order detail)'
+        ]
+    },
+    zh: {
+        headNames: ['注意力頭 1 (局部)','注意力頭 2 (中程)','注意力頭 3 (廣域)','注意力頭 4 (全域)'],
+        distQuery: '與 Query 的距離',
+        attnWeight: '注意力權重',
+        lostMiddle: '「中段遺忘」區域',
+        infoTexts: [
+            '原始旋轉速度 → 強烈局部偏差，注意力隨距離迅速衰減',
+            '旋轉速度減緩 2 倍。具備中等程度的長程觸及，同時能區分鄰近的詞序',
+            '旋轉速度減緩約 4 倍。相距甚遠的 Token 看起來依然相似 → 能良好存取文檔中段',
+            '旋轉幾乎停止。所有位置看起來幾乎完全相同 → 在整個文檔上形成近乎均勻的注意力（有助於尋找宏觀概念，但失去詞序細節）'
+        ]
+    }
+};
+
+function ropeDecay(distance, scale) {
+    // Simulated RoPE attention weight decay
+    const effectiveDist = distance * scale;
+    return Math.exp(-0.15 * effectiveDist);
+}
+
+function softmax(arr) {
+    const max = Math.max(...arr);
+    const exps = arr.map(x => Math.exp(x - max));
+    const sum = exps.reduce((a,b) => a+b, 0);
+    return exps.map(x => x / sum);
+}
+
+function getInfoText(scale, lang) {
+    const texts = STR_LANGS[lang].infoTexts;
+    if (scale >= 0.95) return texts[0];
+    if (scale >= 0.45) return texts[1];
+    if (scale >= 0.2) return texts[2];
+    return texts[3];
+}
+
+function updateViz() {
+    const seqLen = Math.min(parseInt(document.getElementById('seqlen').value), WORDS.length);
+    const qpos = Math.min(parseInt(document.getElementById('qpos').value), seqLen - 1);
+    document.getElementById('qpos').max = seqLen - 1;
+    document.getElementById('qpos-val').textContent = WORDS[qpos] + ' (' + qpos + ')';
+    document.getElementById('seqlen-val').textContent = seqLen;
+
+    // Token row
+    const row = document.getElementById('token-row');
+    row.innerHTML = '';
+    for(let i = 0; i < seqLen; i++) {
+        const d = document.createElement('div');
+        d.className = 'tpos';
+        d.style.minWidth = 'auto';
+        d.innerHTML = `<div class="idx">${i}</div><div class="tok ${i===qpos?'query':''}" style="width:auto;min-width:36px;padding:0 6px;font-size:9px">${WORDS[i]}</div>`;
+        row.appendChild(d);
+    }
+
+    // Heads
+    const grid = document.getElementById('heads-grid');
+    grid.innerHTML = '';
+    const headNames = STR_LANGS[currentLang].headNames;
+    for(let h = 0; h < 4; h++) {
+        const panel = document.createElement('div');
+        panel.className = 'head-panel';
+        
+        // Compute attention weights for this head
+        const rawWeights = [];
+        for(let i = 0; i <= qpos; i++) { // causal: only attend to past + self
+            const dist = Math.abs(qpos - i);
+            rawWeights.push(ropeDecay(dist, scales[h]) + (Math.random() * 0.05));
+        }
+        const attnWeights = softmax(rawWeights);
+        const maxW = Math.max(...attnWeights);
+
+        let barsHTML = '';
+        for(let i = 0; i <= qpos; i++) {
+            const w = attnWeights[i];
+            const pct = (w / maxW) * 100;
+            const color = HEAD_COLORS[h];
+            const alpha = 0.3 + (w / maxW) * 0.7;
+            barsHTML += `<div class="hbar" style="height:${pct}%;background:${color};opacity:${alpha.toFixed(2)}"><div class="hbar-label">${WORDS[i]}</div><div class="hbar-val" style="color:${color}">${w.toFixed(2)}</div></div>`;
+        }
+
+        const infoStr = getInfoText(scales[h], currentLang);
+
+        panel.innerHTML = `
+            <div class="head-title"><span style="width:10px;height:10px;border-radius:3px;display:inline-block;background:${HEAD_COLORS[h]}"></span>${headNames[h]}</div>
+            <div class="head-info">Scale = ${scales[h].toFixed(2)} — ${infoStr}</div>
+            <div class="heatmap" style="margin-bottom:20px">${barsHTML}</div>`;
+        grid.appendChild(panel);
+    }
+
+    drawDecayCurve();
+}
+
+function drawDecayCurve() {
+    const canvas = document.getElementById('decay-canvas');
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = 400;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    
+    const pad = {l:60, r:20, t:20, b:40};
+    const gW = W - pad.l - pad.r;
+    const gH = H - pad.t - pad.b;
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t);
+    ctx.lineTo(pad.l, pad.t + gH);
+    ctx.lineTo(pad.l + gW, pad.t + gH);
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '20px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(STR_LANGS[currentLang].distQuery, pad.l + gW/2, H - 5);
+    ctx.save();
+    ctx.translate(15, pad.t + gH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText(STR_LANGS[currentLang].attnWeight, 0, 0);
+    ctx.restore();
+
+    const maxDist = 30;
+    const lineScales = [1.0, 0.5, 0.25, 0.1];
+    const lineLabels = ['scale=1.0 (original)', 'scale=0.5', 'scale=0.25', 'scale=0.1'];
+
+    lineScales.forEach((s, idx) => {
+        ctx.beginPath();
+        ctx.strokeStyle = HEAD_COLORS[idx];
+        ctx.lineWidth = 3;
+        ctx.setLineDash(s === 1.0 ? [8,4] : []);
+        
+        for(let d = 0; d <= maxDist; d++) {
+            const x = pad.l + (d / maxDist) * gW;
+            const y = pad.t + gH - ropeDecay(d, s) * gH;
+            if(d === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label at end
+        const endY = pad.t + gH - ropeDecay(maxDist, s) * gH;
+        ctx.fillStyle = HEAD_COLORS[idx];
+        ctx.font = '18px Inter';
+        ctx.textAlign = 'left';
+        ctx.fillText(lineLabels[idx], pad.l + gW + 5 > W ? pad.l + gW - 120 : pad.l + gW - 140, endY - 5);
+    });
+
+    // "Lost in the Middle" zone
+    ctx.fillStyle = 'rgba(239,68,68,0.05)';
+    ctx.fillRect(pad.l + gW * 0.25, pad.t, gW * 0.5, gH);
+    ctx.fillStyle = 'rgba(239,68,68,0.4)';
+    ctx.font = '18px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText(STR_LANGS[currentLang].lostMiddle, pad.l + gW * 0.5, pad.t + 30);
+}
+
+function randomize() {
+    scales = [
+        1.0,
+        +(Math.random() * 0.5 + 0.3).toFixed(2),
+        +(Math.random() * 0.3 + 0.1).toFixed(2),
+        +(Math.random() * 0.1 + 0.05).toFixed(2)
+    ];
+    updateViz();
+}
+
+function updatePageTranslations(lang) {
+    updateViz();
+}
+</script>
+
+<script>
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function injectLangSelector() {
+    const selector = document.createElement('div');
+    selector.className = 'lang-selector';
+    selector.innerHTML = `
+        <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">繁中</button>
+    `;
+    document.body.appendChild(selector);
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--bdr, rgba(255,255,255,0.1));
+            border-radius: 8px;
+            padding: 3px;
+            z-index: 1000;
+        }
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: #7a7a90;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .lang-btn:hover {
+            color: #e8e8ed;
+        }
+        .lang-btn.active {
+            background: var(--stream, #06b6d4);
+            color: #000 !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+    const targetBtn = document.getElementById('lang-' + lang);
+    if(targetBtn) targetBtn.classList.add('active');
+    
+    document.querySelectorAll('[data-en]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+    });
+    
+    document.querySelectorAll('[data-en-html]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+    });
+
+    if (typeof updatePageTranslations === 'function') {
+        updatePageTranslations(lang);
+    }
+}
+
+injectLangSelector();
+setLanguage(currentLang);
+updateViz();
+window.addEventListener('resize', () => drawDecayCurve());
+</script>
+</body>
+</html>

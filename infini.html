@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infini-attention — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#08080d;--bg2:#0f0f18;--card:rgba(255,255,255,0.03);--txt:#e8e8ed;--txt2:#7a7a90;--bdr:rgba(255,255,255,0.07);--accent:#10b981;--accent2:#059669;--local:#a78bfa;--mem:#10b981;--out:#60a5fa;--glass:rgba(255,255,255,0.04)}
+        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+        body::before{content:'';position:fixed;top:-30%;right:-20%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(16,185,129,0.07),transparent 70%);pointer-events:none}
+        .back{position:fixed;top:20px;left:20px;color:var(--txt2);text-decoration:none;font-size:13px;font-weight:500;z-index:10;padding:8px 16px;border:1px solid var(--bdr);border-radius:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);transition:all .2s}
+        .back:hover{color:var(--txt);border-color:rgba(255,255,255,0.15)}
+        .ctr{max-width:1100px;margin:0 auto;padding:60px 24px 40px}
+        .hdr{margin-bottom:32px}
+        .hdr-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+        .hdr h1{font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+        .hdr p{color:var(--txt2);font-size:14px;line-height:1.6;max-width:700px}
+        /* Summary card */
+        .summary{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-bottom:28px;display:flex;gap:24px;flex-wrap:wrap}
+        .summary .eq{font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15);padding:8px 14px;border-radius:8px;color:#6ee7b7;white-space:nowrap}
+        .summary .desc{font-size:13px;color:var(--txt2);line-height:1.6;flex:1;min-width:200px}
+        /* Controls */
+        .ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:28px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:16px 20px}
+        .btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .2s}
+        .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+        .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+        .btn-secondary{background:rgba(255,255,255,0.08);color:var(--txt)}
+        .btn-secondary:hover{background:rgba(255,255,255,0.12)}
+        .slider-g{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--txt2)}
+        .slider-g input[type=range]{width:140px;accent-color:var(--accent)}
+        .status{font-size:12px;color:var(--txt2);font-style:italic;margin-left:auto}
+        /* Token stream */
+        .section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);margin-bottom:10px}
+        .tokens{display:flex;gap:6px;flex-wrap:wrap;min-height:42px;margin-bottom:28px}
+        .tok{padding:6px 14px;border:2px solid rgba(255,255,255,0.15);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;background:rgba(255,255,255,0.03);transition:all .3s ease;color:var(--txt)}
+        .tok.current{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 20px rgba(16,185,129,0.3)}
+        .tok.processed{background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.06);color:rgba(255,255,255,0.25)}
+        /* Architecture grid */
+        .arch{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+        .panel{border:1px solid var(--bdr);border-radius:14px;padding:20px;background:var(--card);position:relative;overflow:hidden}
+        .panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .p-local::before{background:linear-gradient(90deg,var(--local),transparent)}
+        .p-mem::before{background:linear-gradient(90deg,var(--mem),transparent)}
+        .panel-title{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+        .p-local .panel-title{color:var(--local)}
+        .p-mem .panel-title{color:var(--mem)}
+        .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+        .panel-desc{font-size:12px;color:var(--txt2);margin-bottom:14px;line-height:1.5}
+        /* Local KV cache */
+        .kv-row{display:flex;gap:8px;flex-wrap:wrap}
+        .kv-slot{width:70px;height:48px;border:2px dashed rgba(167,139,250,0.3);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--txt2);transition:all .3s;background:rgba(167,139,250,0.03)}
+        .kv-slot.filled{border-style:solid;background:var(--local);color:#fff;border-color:var(--local);animation:pop .3s ease}
+        /* Memory matrix */
+        .matrix{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:240px}
+        .mcell{aspect-ratio:1;border:2px solid rgba(16,185,129,0.2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.7);transition:all .5s}
+        /* Mixer */
+        .mixer{grid-column:1/-1;background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:24px;display:flex;justify-content:space-around;align-items:center;flex-wrap:wrap;gap:20px}
+        .gate-viz{text-align:center;flex:1;min-width:280px}
+        .gate-viz .label{font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:8px}
+        .bar-ctr{width:100%;max-width:320px;height:22px;background:rgba(255,255,255,0.06);border-radius:11px;overflow:hidden;display:flex;border:1px solid var(--bdr);margin:0 auto}
+        .bar-l{background:var(--local);transition:width .3s}
+        .bar-m{background:var(--mem);transition:width .3s}
+        .gate-labels{display:flex;justify-content:space-between;max-width:320px;font-size:11px;margin:6px auto 0}
+        .gate-labels span:first-child{color:var(--local)}
+        .gate-labels span:last-child{color:var(--mem)}
+        .arrow{font-size:28px;color:rgba(255,255,255,0.1);font-weight:bold}
+        .out-block{background:var(--out);color:#fff;padding:14px 28px;border-radius:10px;font-weight:700;font-size:14px;box-shadow:0 0 30px rgba(96,165,250,0.15)}
+        /* Properties */
+        .props{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-top:20px}
+        .props h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px}
+        .prop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+        .prop{font-size:12px;padding:8px 12px;border-radius:8px;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+        .prop.yes{background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.12);color:#6ee7b7}
+        .prop.no{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.12);color:#fca5a5}
+        @keyframes pop{0%{transform:scale(.85)}100%{transform:scale(1)}}
+        /* Interference Warning */
+        .warn-panel{grid-column:1/-1;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.15);border-radius:14px;padding:20px;position:relative;overflow:hidden}
+        .warn-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#ef4444,transparent)}
+        .warn-title{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;color:#f87171;display:flex;align-items:center;gap:8px}
+        .warn-body{font-size:12px;color:var(--txt2);line-height:1.6}
+        .warn-body strong{color:#fca5a5}
+        .example-box{margin-top:12px;background:rgba(0,0,0,0.3);border:1px solid rgba(239,68,68,0.12);border-radius:10px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.8}
+        .ex-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .ex-key{color:#fbbf24;background:rgba(251,191,36,0.1);padding:2px 8px;border-radius:4px}
+        .ex-val{color:#6ee7b7;background:rgba(16,185,129,0.1);padding:2px 8px;border-radius:4px}
+        .ex-arrow{color:var(--txt2)}
+        .ex-collision{color:#f87171;background:rgba(239,68,68,0.1);padding:2px 8px;border-radius:4px}
+        .ex-note{font-size:11px;color:#f87171;margin-top:8px;font-family:'Inter',sans-serif;font-style:italic}
+        /* Comparison panels */
+        .compare-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+        .cmp-panel{border:1px solid var(--bdr);border-radius:14px;padding:20px;background:var(--card);position:relative;overflow:hidden}
+        .cmp-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .cmp-std::before{background:linear-gradient(90deg,#ef4444,transparent)}
+        .cmp-inf::before{background:linear-gradient(90deg,var(--mem),transparent)}
+        .cmp-title{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+        .cmp-std .cmp-title{color:#f87171}
+        .cmp-inf .cmp-title{color:var(--mem)}
+        .cmp-desc{font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.4}
+        .std-cache{display:flex;gap:4px;flex-wrap:wrap;min-height:40px}
+        .std-slot{width:44px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;transition:all .3s;border:2px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);color:#fca5a5}
+        .std-slot.new{animation:pop .3s ease}
+        .oom-badge{display:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:800;background:rgba(239,68,68,0.15);border:2px solid #ef4444;color:#ef4444;text-align:center;margin-top:10px;animation:pop .3s ease}
+        .oom-badge.show{display:block}
+        .mem-stat{font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:8px;padding:6px 10px;border-radius:6px;background:rgba(0,0,0,0.2)}
+        .cmp-std .mem-stat{color:#fca5a5}
+        .cmp-inf .mem-stat{color:#6ee7b7}
+        @media(max-width:768px){.arch{grid-template-columns:1fr}.bar-ctr{width:100%}.compare-row{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+<a href="index.html" class="back" data-en="← All Methods" data-zh="← 返回所有方法">← All Methods</a>
+<div class="ctr">
+    <div class="hdr">
+        <div class="hdr-label" data-en="Google Research, 2024" data-zh="Google Research, 2024">Google Research, 2024</div>
+        <h1 data-en="Infini-attention Visualizer" data-zh="Infini-attention 視覺化工具">Infini-attention Visualizer</h1>
+        <p data-en="Compressive Memory & Local Masked Attention — 'Leave No Context Behind: Efficient Infinite Context Transformers with Infini-attention'" data-zh="壓縮記憶體與局部遮罩注意力機制 — 「不遺漏任何上下文：高效的無限上下文 Infini-attention Transformer」">Compressive Memory & Local Masked Attention — "Leave No Context Behind: Efficient Infinite Context Transformers with Infini-attention"</p>
+    </div>
+    <div class="summary">
+        <div>
+            <div class="eq">M ← M + σ(K)ᵀV</div>
+            <div class="eq" style="margin-top:6px">A_mem = σ(Q)M / σ(Q)z</div>
+            <div class="eq" style="margin-top:6px">O = σ(β)·A_mem + (1−σ(β))·A_dot</div>
+        </div>
+        <div class="desc" data-en="Each input segment undergoes standard dot-product attention locally, while past segments are folded into a fixed-size compressive memory matrix via associative binding. A learned gating scalar β blends retrieved memory context with local attention output." data-zh="每個輸入的分段皆在本地進行標準點積注意力計算，同時過去的分段透過結合綁定折疊至固定大小的壓縮記憶體矩陣中。隨後，學習出的門控標量 β 將檢索到的記憶體上下文與本地注意力輸出進行融合。">Each input segment undergoes standard dot-product attention locally, while past segments are folded into a fixed-size compressive memory matrix via associative binding. A learned gating scalar β blends retrieved memory context with local attention output.</div>
+    </div>
+    <div class="ctrl">
+        <button class="btn" id="step-btn" onclick="processNext()" data-en="▶ Process Next Segment" data-zh="▶ 處理下一個分段">▶ Process Next Segment</button>
+        <button class="btn btn-secondary" onclick="resetSim()" data-en="↺ Reset" data-zh="↺ 重設">↺ Reset</button>
+        <div class="slider-g">
+            <label><span data-en="Gating β:" data-zh="門控 β:">Gating β:</span> <span id="gate-val" style="color:var(--accent)">0.50</span></label>
+            <input type="range" id="gate-slider" min="0" max="1" step="0.05" value="0.5" oninput="updateGate(this.value)">
+        </div>
+        <div class="status" id="status" data-en="Ready — 6 segments to process." data-zh="就緒 — 尚有 6 個分段待處理。">Ready — 6 segments to process.</div>
+    </div>
+    <div class="section-label" data-en="Input Context Stream" data-zh="輸入上下文串流">Input Context Stream</div>
+    <div class="tokens" id="stream"></div>
+
+    <div class="section-label" data-en="Memory Usage Comparison" data-zh="記憶體使用率對比">Memory Usage Comparison</div>
+    <div class="compare-row">
+        <div class="cmp-panel cmp-std">
+            <div class="cmp-title"><span class="dot" style="background:#ef4444"></span><span data-en="Standard Transformer (Baseline)" data-zh="標準 Transformer (基準模型)">Standard Transformer (Baseline)</span></div>
+            <div class="cmp-desc" data-en="KV cache grows linearly — every past token is stored individually. Eventually hits GPU VRAM limit." data-zh="KV 快取呈線性增長 — 過去的每個 Token 皆需單獨儲存。最終將觸發 GPU VRAM 限制。">KV cache grows linearly — every past token is stored individually. Eventually hits GPU VRAM limit.</div>
+            <div class="std-cache" id="std-cache"></div>
+            <div class="mem-stat" id="std-mem">VRAM: 0 / 20 slots</div>
+            <div class="oom-badge" id="oom-badge">💥 OUT OF MEMORY (OOM) — VRAM FULL!</div>
+        </div>
+        <div class="cmp-panel cmp-inf">
+            <div class="cmp-title"><span class="dot" style="background:var(--mem)"></span><span>Infini-attention</span></div>
+            <div class="cmp-desc" data-en="Fixed-size 4×4 matrix absorbs all segments. Memory usage is constant regardless of context length." data-zh="固定大小的 4×4 矩陣吸收了所有分段。不論上下文長度如何，記憶體使用量均保持恆定。">Fixed-size 4×4 matrix absorbs all segments. Memory usage is constant regardless of context length.</div>
+            <div class="matrix" id="cmp-matrix" style="max-width:200px"></div>
+            <div class="mem-stat" id="inf-mem">VRAM: 16 cells (constant forever ∞)</div>
+        </div>
+    </div>
+
+    <div class="arch">
+        <div class="panel p-local">
+            <div class="panel-title"><span class="dot" style="background:var(--local)"></span><span data-en="Local Causal Attention Window" data-zh="局部因果注意力窗口">Local Causal Attention Window</span></div>
+            <div class="panel-desc" data-en="Standard dot-product attention over the current segment only. KV cache is flushed after each segment and folded into memory." data-zh="僅針對當前分段進行標準的點積注意力。每個分段處理完後 local KV 快取會被清空，並折疊存入記憶體中。">Standard dot-product attention over the current segment only. KV cache is flushed after each segment and folded into memory.</div>
+            <div class="kv-row" id="local-cache"></div>
+        </div>
+
+        <div class="panel p-mem">
+            <div class="panel-title"><span class="dot" style="background:var(--mem)"></span><span data-en="Global Compressive Memory (M)" data-zh="全局壓縮記憶體 (M)">Global Compressive Memory (M)</span></div>
+            <div class="panel-desc" data-en="Fixed-size matrix updated via M ← M + σ(K)ᵀV. Bounded memory regardless of sequence length — enables infinite context." data-zh="透過 M ← M + σ(K)ᵀV 更新的固定大小矩陣。不論序列長度為何，記憶體皆有界 — 實現無限上下文。">Fixed-size matrix updated via M ← M + σ(K)ᵀV. Bounded memory regardless of sequence length — enables infinite context.</div>
+            <div class="matrix" id="mem-matrix"></div>
+        </div>
+        
+        <div class="warn-panel">
+            <div class="warn-title" data-en="⚠ Memory Interference — The Fundamental Trade-off" data-zh="⚠ 記憶體干擾 — 根本的權衡代價">⚠ Memory Interference — The Fundamental Trade-off</div>
+            <div class="warn-body">
+                <p data-en="You might ask: how does the model know that a value in the matrix is about past vs. new information?" data-zh="你可能會問：模型如何知道矩陣中的某個值是代表過去的資訊，還是最新的資訊？">You might ask: how does the model know that a value in the matrix is about past vs. new information?</p>
+                <p style="margin-top:8px" data-en="The answer is: it doesn't perfectly distinguish them. The memory matrix stores Key→Value associations via M += σ(K)ᵀV. If a new fact produces a Key vector similar to a past fact's Key, the new Value blends into the old one — they physically overlap in the same matrix cells." data-zh="答案是：模型無法完美區分它們。記憶體矩陣透過 M += σ(K)ᵀV 來儲存鍵值（Key→Value）關聯。如果新事實產生的 Key 向量與過去事實的 Key 相似，新 Value 就會與舊 Value 混雜融合 — 它們在同一個矩陣單元格中產生了物理上的重疊。">The answer is: it doesn't perfectly distinguish them. The memory matrix stores Key→Value associations via M += σ(K)ᵀV. If a new fact produces a Key vector similar to a past fact's Key, the new Value blends into the old one — they physically overlap in the same matrix cells.</p>
+                <div class="example-box">
+                    <div data-en="Segment 2 arrives:" data-zh="分段 2 到達：">Segment 2 arrives:</div>
+                    <div class="ex-row" style="margin-top:6px">
+                        <span class="ex-key">Key("pet")</span>
+                        <span class="ex-arrow">→</span>
+                        <span class="ex-val" data-en="Value: 'User has a dog'" data-zh="Value: 「使用者有一隻狗」">Value: "User has a dog"</span>
+                        <span class="ex-arrow" data-en="⟹ stored in M at cells governed by Key('pet')" data-zh="⟹ 存入 M 中由 Key('pet') 控制的單元格">⟹ stored in M at cells governed by Key("pet")</span>
+                    </div>
+                    <div style="margin-top:8px" data-en="Segment 5 arrives (similar topic!):" data-zh="分段 5 到達（相似的主題！）：">Segment 5 arrives (similar topic!):</div>
+                    <div class="ex-row" style="margin-top:6px">
+                        <span class="ex-key">Key("pet")</span>
+                        <span class="ex-arrow">→</span>
+                        <span class="ex-val" data-en="Value: 'User has a brown-eyed chihuahua'" data-zh="Value: 「使用者有一隻棕色眼睛的吉娃娃」">Value: "User has a brown-eyed chihuahua"</span>
+                    </div>
+                    <div class="ex-row" style="margin-top:6px">
+                        <span class="ex-arrow" data-en="⟹ Since Key('pet') ≈ Key('pet'), the new value" data-zh="⟹ 由於 Key('pet') ≈ Key('pet')，新值會">⟹ Since Key("pet") ≈ Key("pet"), the new value</span>
+                        <span class="ex-collision" data-en="BLENDS INTO the same cells" data-zh="混雜融合在相同的單元格中">BLENDS INTO the same cells</span>
+                    </div>
+                    <div class="ex-row" style="margin-top:6px">
+                        <span class="ex-arrow" data-en="⟹ Retrieved value becomes:" data-zh="⟹ 檢索出的值會變成：">⟹ Retrieved value becomes:</span>
+                        <span class="ex-collision" data-en="'User has a ??? dog/chihuahua' (blurred)" data-zh="「使用者有一隻 ？？？ 狗 / 吉娃娃」（產生模糊）">"User has a ??? dog/chihuahua" (blurred)</span>
+                    </div>
+                    <div class="ex-note" data-en="The model has hundreds of dimensions to minimize collisions, but with enough context, interference is inevitable. This is exactly why Infini-attention suffers from Long-Term Amnesia and Lost-in-the-Middle — it cannot perfectly recall highly specific, colliding facts." data-zh="模型擁有數百維的空間來盡量減少衝突，但當上下文夠長時，干擾是不可避免的。這正是為什麼 Infini-attention 會有「長程失憶」與「中段遺忘」缺陷的原因 — 它無法完美召回高度具體、且發生衝突的事實。">The model has hundreds of dimensions to minimize collisions, but with enough context, interference is inevitable. This is exactly why Infini-attention suffers from Long-Term Amnesia and Lost-in-the-Middle — it cannot perfectly recall highly specific, colliding facts.</div>
+                </div>
+            </div>
+        </div>
+        <div class="mixer">
+            <div class="gate-viz">
+                <div class="label" data-en="Learned Gating — Information Blend Ratio" data-zh="學得之門控 — 資訊融合比例">Learned Gating — Information Blend Ratio</div>
+                <div class="bar-ctr">
+                    <div class="bar-l" id="bar-l" style="width:50%"></div>
+                    <div class="bar-m" id="bar-m" style="width:50%"></div>
+                </div>
+                <div class="gate-labels"><span>Local A_dot · (1−σ(β))</span><span>Memory A_mem · σ(β)</span></div>
+                <div class="panel-desc" style="margin-top:12px;text-align:left;border-top:1px solid var(--bdr);padding-top:10px" data-en="Gating β acts as a learned balancing switch. A high β (closer to 1.0) forces the attention layer to retrieve facts from the global compressive memory (historical text), while a low β (closer to 0.0) limits focus to the local attention window (immediate active words)." data-zh="門控參數 β 作為學習式的平衡開關。較高的 β（接近 1.0）強迫注意力層從全局壓縮記憶體中檢索事實（歷史文本）；較低的 β（接近 0.0）則將注意力限制在當前局部窗口（即時字詞）。">Gating β acts as a learned balancing switch. A high β (closer to 1.0) forces the attention layer to retrieve facts from the global compressive memory (historical text), while a low β (closer to 0.0) limits focus to the local attention window (immediate active words).</div>
+       
+<script>
+const TEXT = ["The","Infini-attention","framework","allows","LLMs","to","process","infinitely","long","inputs","by","maintaining","a","bounded","memory","footprint","without","running","out","of","precious","VRAM","hardware","allocations"];
+const SEG = 4;
+const STD_MAX = 20;
+let segIdx = 0;
+let memW = new Float32Array(16);
+let stdCacheCount = 0;
+
+const INF_LANGS = {
+    en: {
+        ready: "Ready — 6 segments to process.",
+        empty: "Empty",
+        oom: "💥 OUT OF MEMORY (OOM) — VRAM FULL!",
+        vramSlots: "VRAM: {count} / {max} slots",
+        vramUsed: "VRAM: {count} / {max} slots ({pct}% used)",
+        constant: "VRAM: 16 cells (constant forever ∞)",
+        processed: "Segment {idx} processed. KV states folded into memory. {rem} remaining.",
+        end: "End of context stream reached.",
+        proj: "Linear Projection → Output"
+    },
+    zh: {
+        ready: "就緒 — 尚有 6 個分段待處理。",
+        empty: "空置",
+        oom: "💥 記憶體不足 (OOM) — VRAM 滿載！",
+        vramSlots: "VRAM: {count} / {max} 插槽",
+        vramUsed: "VRAM: {count} / {max} 插槽 (已使用 {pct}%)",
+        constant: "VRAM: 16 單元格 (永久恆定 ∞)",
+        processed: "分段 {idx} 已處理。KV 狀態已折疊入記憶體。剩餘 {rem} 個分段。",
+        end: "已到達上下文串流末端。",
+        proj: "線性投影 → 輸出"
+    }
+};
+
+function init() {
+    const s = document.getElementById('stream');
+    s.innerHTML = '';
+    TEXT.forEach((t,i) => {
+        const sp = document.createElement('span');
+        sp.className = 'tok'; sp.id = 'tok-'+i; sp.textContent = t;
+        s.appendChild(sp);
+    });
+    const c = document.getElementById('local-cache');
+    c.innerHTML = '';
+    for(let i=0;i<SEG;i++){
+        const d = document.createElement('div');
+        d.className='kv-slot'; d.id='kv-'+i;
+        d.textContent = INF_LANGS[currentLang].empty;
+        c.appendChild(d);
+    }
+    const m = document.getElementById('mem-matrix');
+    m.innerHTML = '';
+    for(let i=0;i<16;i++){
+        const d = document.createElement('div');
+        d.className='mcell'; d.id='mc-'+i; d.textContent='0.00';
+        m.appendChild(d);
+    }
+    // Init comparison matrix
+    const cm = document.getElementById('cmp-matrix');
+    cm.innerHTML = '';
+    for(let i=0;i<16;i++){
+        const d = document.createElement('div');
+        d.className='mcell'; d.id='cmc-'+i; d.textContent='0.00';
+        cm.appendChild(d);
+    }
+    // Init standard cache
+    document.getElementById('std-cache').innerHTML = '';
+    
+    stdCacheCount = 0;
+    updateMatrixUI();
+    updatePageTranslations(currentLang);
+}
+
+function processNext() {
+    const start = segIdx * SEG;
+    if(start >= TEXT.length){ 
+        document.getElementById('status').textContent = INF_LANGS[currentLang].end;
+        document.getElementById('step-btn').disabled = true;
+        return;
+    }
+    // Mark previous as processed
+    TEXT.forEach((_,i)=>{
+        const el = document.getElementById('tok-'+i);
+        if(i<start) el.className='tok processed';
+        else el.className='tok';
+    });
+    // Fill local cache + highlight current
+    for(let i=0;i<SEG;i++){
+        const idx = start+i;
+        const slot = document.getElementById('kv-'+i);
+        if(idx < TEXT.length){
+            document.getElementById('tok-'+idx).className='tok current';
+            slot.className='kv-slot filled'; slot.textContent=TEXT[idx];
+        } else {
+            slot.className='kv-slot'; slot.textContent=INF_LANGS[currentLang].empty;
+        }
+    }
+    // Update compressive memory: M += sigma(K)^T V
+    for(let j=0;j<16;j++){
+        if(Math.random()>0.25){
+            memW[j] = Math.min(memW[j] + Math.random()*0.3 + 0.1, 1.0);
+        }
+    }
+    // Update standard KV cache (grows linearly)
+    const stdEl = document.getElementById('std-cache');
+    const tokensThisSeg = Math.min(SEG, TEXT.length - start);
+    for(let i=0;i<tokensThisSeg;i++){
+        stdCacheCount++;
+        if(stdCacheCount <= STD_MAX){
+            const d = document.createElement('div');
+            d.className = 'std-slot new';
+            d.textContent = TEXT[start+i].substring(0,5);
+            stdEl.appendChild(d);
+        }
+    }
+    
+    updateMemoryStatsUI();
+
+    // Update comparison matrix
+    for(let i=0;i<16;i++){
+        const cell = document.getElementById('cmc-'+i);
+        const v = memW[i];
+        const a = 0.15 + v*0.85;
+        cell.style.backgroundColor = `rgba(16,185,129,${a.toFixed(2)})`;
+        cell.style.borderColor = `rgba(16,185,129,${(0.3+v*0.7).toFixed(2)})`;
+        cell.textContent = v.toFixed(2);
+    }
+
+    setTimeout(()=>{
+        updateMatrixUI();
+        segIdx++;
+        const rem = Math.max(0, Math.ceil(TEXT.length/SEG) - segIdx);
+        
+        let textProcessed = INF_LANGS[currentLang].processed
+            .replace('{idx}', segIdx)
+            .replace('{rem}', rem);
+        document.getElementById('status').textContent = textProcessed;
+
+        // Flash output
+        const ob = document.getElementById('out-block');
+        ob.style.boxShadow = '0 0 40px rgba(96,165,250,0.4)';
+        setTimeout(()=> ob.style.boxShadow = '0 0 30px rgba(96,165,250,0.15)', 400);
+    }, 150);
+}
+
+function updateMemoryStatsUI() {
+    const stdMemEl = document.getElementById('std-mem');
+    const oomBadge = document.getElementById('oom-badge');
+    const infMemEl = document.getElementById('inf-mem');
+
+    infMemEl.textContent = INF_LANGS[currentLang].constant;
+
+    if(stdCacheCount >= STD_MAX){
+        stdMemEl.textContent = INF_LANGS[currentLang].vramSlots
+            .replace('{count}', stdCacheCount)
+            .replace('{max}', STD_MAX) + ' — FULL!';
+        stdMemEl.style.color = '#ef4444';
+        oomBadge.textContent = INF_LANGS[currentLang].oom;
+        oomBadge.classList.add('show');
+    } else {
+        const pct = ((stdCacheCount/STD_MAX)*100).toFixed(0);
+        stdMemEl.textContent = INF_LANGS[currentLang].vramUsed
+            .replace('{count}', stdCacheCount)
+            .replace('{max}', STD_MAX)
+            .replace('{pct}', pct);
+        stdMemEl.style.color = stdCacheCount > STD_MAX * 0.7 ? '#fbbf24' : '#fca5a5';
+        oomBadge.classList.remove('show');
+    }
+}
+
+function updateMatrixUI(){
+    for(let i=0;i<16;i++){
+        const cell = document.getElementById('mc-'+i);
+        const v = memW[i];
+        const a = 0.15 + v*0.85;
+        cell.style.backgroundColor = `rgba(16,185,129,${a.toFixed(2)})`;
+        cell.style.borderColor = `rgba(16,185,129,${(0.3+v*0.7).toFixed(2)})`;
+        cell.textContent = v.toFixed(2);
+    }
+}
+
+function updateGate(val){
+    const v = parseFloat(val);
+    document.getElementById('gate-val').textContent = v.toFixed(2);
+    const sigBeta = 1/(1+Math.exp(-(v*6-3))); // sigmoid mapping
+    document.getElementById('bar-l').style.width = ((1-sigBeta)*100)+'%';
+    document.getElementById('bar-m').style.width = (sigBeta*100)+'%';
+}
+
+function resetSim(){
+    segIdx = 0;
+    memW = new Float32Array(16);
+    document.getElementById('step-btn').disabled = false;
+    document.getElementById('status').textContent = INF_LANGS[currentLang].ready;
+    document.getElementById('gate-slider').value = 0.5;
+    updateGate(0.5);
+    init();
+}
+
+function updatePageTranslations(lang) {
+    if (segIdx === 0) {
+        document.getElementById('status').textContent = INF_LANGS[lang].ready;
+    } else {
+        const rem = Math.max(0, Math.ceil(TEXT.length/SEG) - segIdx);
+        document.getElementById('status').textContent = INF_LANGS[lang].processed
+            .replace('{idx}', segIdx)
+            .replace('{rem}', rem);
+    }
+    
+    // Update local cache items
+    for(let i=0;i<SEG;i++){
+        const slot = document.getElementById('kv-'+i);
+        if (slot && !slot.classList.contains('filled')) {
+            slot.textContent = INF_LANGS[lang].empty;
+        }
+    }
+
+    updateMemoryStatsUI();
+}
+</script>
+
+<script>
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function injectLangSelector() {
+    const selector = document.createElement('div');
+    selector.className = 'lang-selector';
+    selector.innerHTML = `
+        <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">繁中</button>
+    `;
+    document.body.appendChild(selector);
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--bdr, rgba(255,255,255,0.1));
+            border-radius: 8px;
+            padding: 3px;
+            z-index: 1000;
+        }
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: #7a7a90;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .lang-btn:hover {
+            color: #e8e8ed;
+        }
+        .lang-btn.active {
+            background: var(--infini, #10b981);
+            color: #000 !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+    const targetBtn = document.getElementById('lang-' + lang);
+    if(targetBtn) targetBtn.classList.add('active');
+    
+    document.querySelectorAll('[data-en]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+    });
+    
+    document.querySelectorAll('[data-en-html]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+    });
+
+    if (typeof updatePageTranslations === 'function') {
+        updatePageTranslations(lang);
+    }
+}
+
+injectLangSelector();
+setLanguage(currentLang);
+</script>
+</body>
+</html>

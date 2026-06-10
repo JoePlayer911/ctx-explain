@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamingLLM — Interactive Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--bg:#08080d;--bg2:#0f0f18;--card:rgba(255,255,255,0.03);--txt:#e8e8ed;--txt2:#7a7a90;--bdr:rgba(255,255,255,0.07);--accent:#f59e0b;--sink:#fbbf24;--window:#60a5fa;--evict:#ef4444;--glass:rgba(255,255,255,0.04)}
+        body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+        body::before{content:'';position:fixed;top:-30%;left:-10%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(245,158,11,0.06),transparent 70%);pointer-events:none}
+        .back{position:fixed;top:20px;left:20px;color:var(--txt2);text-decoration:none;font-size:13px;font-weight:500;z-index:10;padding:8px 16px;border:1px solid var(--bdr);border-radius:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);transition:all .2s}
+        .back:hover{color:var(--txt);border-color:rgba(255,255,255,0.15)}
+        .ctr{max-width:1100px;margin:0 auto;padding:60px 24px 40px}
+        .hdr{margin-bottom:32px}
+        .hdr-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+        .hdr h1{font-size:32px;font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+        .hdr p{color:var(--txt2);font-size:14px;line-height:1.6;max-width:700px}
+        .summary{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-bottom:28px}
+        .summary .desc{font-size:13px;color:var(--txt2);line-height:1.6}
+        .summary .key{font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);padding:8px 14px;border-radius:8px;color:#fcd34d;margin-top:10px;display:inline-block}
+        .ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:28px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:16px 20px}
+        .btn{background:var(--accent);color:#000;border:none;padding:10px 20px;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .2s}
+        .btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+        .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+        .btn-sec{background:rgba(255,255,255,0.08);color:var(--txt);font-weight:600}
+        .btn-sec:hover{background:rgba(255,255,255,0.12)}
+        .mode-sel{display:flex;gap:4px;background:rgba(255,255,255,0.05);border-radius:8px;padding:3px;border:1px solid var(--bdr)}
+        .mode-btn{padding:7px 14px;font-size:12px;font-weight:600;border:none;background:transparent;color:var(--txt2);cursor:pointer;border-radius:6px;font-family:inherit;transition:all .2s}
+        .mode-btn.active{background:var(--accent);color:#000}
+        .status{font-size:12px;color:var(--txt2);font-style:italic;margin-left:auto}
+        .section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);margin-bottom:10px}
+        /* Full history */
+        .full-hist{display:flex;gap:4px;flex-wrap:wrap;min-height:36px;margin-bottom:20px;padding:12px;background:var(--card);border:1px solid var(--bdr);border-radius:10px}
+        .ht{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;transition:all .3s}
+        .ht.future{background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);color:var(--txt2)}
+        .ht.arrived{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--txt)}
+        .ht.latest{background:var(--accent);border:1px solid var(--accent);color:#000;box-shadow:0 0 15px rgba(245,158,11,0.3);animation:pop .3s}
+        /* KV Cache */
+        .cache-section{margin-bottom:24px}
+        .cache-vis{display:flex;gap:6px;flex-wrap:wrap;min-height:50px;padding:16px;background:var(--card);border:1px solid var(--bdr);border-radius:12px}
+        .slot{width:54px;height:54px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;transition:all .3s;border:2px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);position:relative}
+        .slot.sink{background:rgba(251,191,36,0.12);border-color:var(--sink);color:var(--sink);box-shadow:0 0 12px rgba(251,191,36,0.1)}
+        .slot.win{background:rgba(96,165,250,0.1);border-color:var(--window);color:var(--window)}
+        .slot.empty{border-style:dashed;color:var(--txt2)}
+        .slot-label{font-size:7px;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;opacity:.7}
+        /* Eviction animation */
+        .slot.evicting{animation:evict .4s ease-out forwards}
+        @keyframes evict{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.7) translateY(10px)}}
+        @keyframes pop{0%{transform:scale(.85)}100%{transform:scale(1)}}
+        /* Perplexity panel */
+        .ppl-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+        .ppl-card{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px;position:relative;overflow:hidden}
+        .ppl-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .ppl-card.danger::before{background:linear-gradient(90deg,var(--evict),transparent)}
+        .ppl-card.safe::before{background:linear-gradient(90deg,var(--sink),transparent)}
+        .ppl-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+        .ppl-card.danger .ppl-title{color:var(--evict)}
+        .ppl-card.safe .ppl-title{color:var(--sink)}
+        .ppl-value{font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+        .ppl-desc{font-size:11px;color:var(--txt2);line-height:1.4}
+        /* Legend */
+        .legend{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:28px;font-size:12px}
+        .leg-item{display:flex;align-items:center;gap:6px}
+        .leg-dot{width:14px;height:14px;border-radius:4px;border:2px solid}
+        .leg-sink{background:rgba(251,191,36,0.15);border-color:var(--sink)}
+        .leg-win{background:rgba(96,165,250,0.12);border-color:var(--window)}
+        .leg-evict{background:rgba(239,68,68,0.12);border-color:var(--evict)}
+        /* Position re-index */
+        .posidx{margin-top:10px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--txt2);padding:10px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid var(--bdr);overflow-x:auto;white-space:nowrap}
+        /* Properties */
+        .props{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px 24px;margin-top:20px}
+        .props h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px}
+        .prop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+        .prop{font-size:12px;padding:8px 12px;border-radius:8px;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+        .prop.yes{background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.12);color:#6ee7b7}
+        .prop.no{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.12);color:#fca5a5}
+        /* Model output */
+        .model-out{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:20px;margin-bottom:20px;position:relative;overflow:hidden}
+        .model-out::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent)}
+        .mo-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin-bottom:10px}
+        .mo-text{font-size:13px;line-height:1.7;min-height:44px;padding:12px 14px;border-radius:10px;background:rgba(0,0,0,0.3);border:1px solid var(--bdr);font-family:'JetBrains Mono',monospace;transition:all .3s}
+        .mo-text.gibberish{color:#ef4444;border-color:rgba(239,68,68,0.2)}
+        .mo-text.coherent{color:#6ee7b7;border-color:rgba(52,211,153,0.2)}
+        @media(max-width:768px){.ppl-panel{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+<a href="index.html" class="back" data-en="← All Methods" data-zh="← 返回所有方法">← All Methods</a>
+<div class="ctr">
+    <div class="hdr">
+        <div class="hdr-label" data-en="MIT / Meta AI, 2023" data-zh="MIT / Meta AI, 2023">MIT / Meta AI, 2023</div>
+        <h1 data-en="StreamingLLM Visualizer" data-zh="StreamingLLM 視覺化工具">StreamingLLM Visualizer</h1>
+        <p data-en="'Efficient Streaming Language Models with Attention Sinks' — Discovers that initial tokens act as attention sinks, and keeping them enables stable infinite-length streaming." data-zh="「基於注意力匯的高效串流語言模型」 — 發現初始的數個 Token 會充當注意力匯（Attention Sink），保留它們便能實現穩定的無限長度串流。">"Efficient Streaming Language Models with Attention Sinks" — Discovers that initial tokens act as attention sinks, and keeping them enables stable infinite-length streaming.</p>
+    </div>
+    <div class="summary">
+        <div class="desc" data-en="Standard sliding-window eviction causes perplexity explosion once the sequence exceeds cache size, because the model loses its 'anchor' tokens. StreamingLLM fixes this by always retaining the first few 'sink' tokens (typically 4) alongside the recent sliding window — no fine-tuning required." data-zh="標準的滑動窗口清空機制一旦讓序列長度超過快取容量，將導致困惑度（Perplexity）急遽暴增，因為模型失去了它的「錨點」Token。StreamingLLM 透過始終保留最前面幾個「注意力匯」（通常為 4 個）及最近的滑動窗口來解決此問題 — 無需微調模型即可運作。">Standard sliding-window eviction causes <strong>perplexity explosion</strong> once the sequence exceeds cache size, because the model loses its "anchor" tokens. StreamingLLM fixes this by <strong>always retaining the first few "sink" tokens</strong> (typically 4) alongside the recent sliding window — no fine-tuning required.</div>
+        <div class="key">KV Cache = [Sink₁..Sinkₖ] ∪ [Window of last W tokens]</div>
+    </div>
+    <div class="ctrl">
+        <button class="btn" id="step-btn" onclick="streamToken()" data-en="▶ Stream Next Token" data-zh="▶ 串流下一個 Token">▶ Stream Next Token</button>
+        <button class="btn" id="auto-btn" onclick="toggleAuto()" data-en="⏩ Auto-Play" data-zh="⏩ 自動播放">⏩ Auto-Play</button>
+        <button class="btn btn-sec" onclick="resetSim()" data-en="↺ Reset" data-zh="↺ 重設">↺ Reset</button>
+        <div class="mode-sel">
+            <button class="mode-btn active" data-mode="streaming" onclick="setMode('streaming',this)" data-en="StreamingLLM" data-zh="StreamingLLM">StreamingLLM</button>
+            <button class="mode-btn" data-mode="window" onclick="setMode('window',this)" data-en="Window Only" data-zh="僅滑動窗口">Window Only</button>
+        </div>
+        <div class="status" id="status" data-en="Ready — streaming mode." data-zh="就緒 — 串流模式。">Ready — streaming mode.</div>
+    </div>
+    <div class="legend">
+        <div class="leg-item"><div class="leg-dot leg-sink"></div><span data-en="Attention Sink (never evicted)" data-zh="注意力匯 (永不剔除)">Attention Sink (never evicted)</span></div>
+        <div class="leg-item"><div class="leg-dot leg-win"></div><span data-en="Sliding Window (recent tokens)" data-zh="滑動窗口 (近期 Token)">Sliding Window (recent tokens)</span></div>
+        <div class="leg-item"><div class="leg-dot leg-evict"></div><span data-en="Evicted (permanently lost)" data-zh="已剔除 (永久失去)">Evicted (permanently lost)</span></div>
+    </div>
+    <div class="section-label" data-en="Full Token History (generated so far)" data-zh="完整 Token 歷史紀錄 (已生成)">Full Token History (generated so far)</div>
+    <div class="full-hist" id="history"></div>
+    <div class="cache-section">
+        <div class="section-label" data-en="KV Cache State (max 12 slots)" data-zh="KV 快取狀態 (最大 12 個插槽)">KV Cache State (max 12 slots)</div>
+        <div class="cache-vis" id="cache"></div>
+        <div class="posidx" id="posidx">Position indices: —</div>
+    </div>
+    <div class="ppl-panel">
+        <div class="ppl-card" id="ppl-card">
+            <div class="ppl-title" id="ppl-label" data-en="Perplexity Indicator" data-zh="困惑度 (Perplexity) 指標">Perplexity Indicator</div>
+            <div class="ppl-value" id="ppl-value">—</div>
+            <div class="ppl-desc" id="ppl-desc" data-en="Stream tokens to observe perplexity behavior." data-zh="串流 Token 以觀察困惑度的變化。">Stream tokens to observe perplexity behavior.</div>
+        </div>
+        <div class="ppl-card safe">
+            <div class="ppl-title" data-en="Tokens Evicted" data-zh="被剔除的 Token 數">Tokens Evicted</div>
+            <div class="ppl-value" id="evict-count">0</div>
+            <div class="ppl-desc" id="evict-desc" data-en="In StreamingLLM, evicted tokens are from the gap between sinks and window — the 'middle' is permanently lost." data-zh="在 StreamingLLM 中，剔除的 Token 是注意力匯與滑動窗口之間的間隙 — 「中間段落」會永久丟失。">In StreamingLLM, evicted tokens are from the gap between sinks and window — the "middle" is permanently lost.</div>
+        </div>
+    </div>
+    <div class="model-out">
+        <div class="mo-title" data-en="📝 Model Output (what the LLM generates)" data-zh="📝 模型輸出 (LLM 生成的文字)">📝 Model Output (what the LLM generates)</div>
+        <div class="mo-text" id="mo-text" data-en="Stream tokens to see what the model generates..." data-zh="串流 Token 以查看模型生成的文字...">Stream tokens to see what the model generates...</div>
+    </div>
+    <div class="props">
+        <h3 data-en="Method Properties" data-zh="方法屬性">Method Properties</h3>
+        <div class="prop-grid">
+            <div class="prop yes">✅ <div data-en="KV Cache: Permanently drops oldest non-sink tokens to keep cache static." data-zh="KV 快取：永久丟棄最舊的非注意力匯 Token 以保持快取靜態大小。"><strong>KV Cache:</strong> Permanently drops oldest non-sink tokens to keep cache static.</div></div>
+            <div class="prop yes">✅ <div data-en="Quadratic Scaling: Fixed window caps exact-match comparisons." data-zh="二次計算複雜度：固定大小窗口限制了精確配對的計算。"><strong>Quadratic Scaling:</strong> Fixed window caps exact-match comparisons.</div></div>
+            <div class="prop yes">✅ <div data-en="Immediate Context: Sliding window preserves recent context perfectly." data-zh="即時上下文：滑動窗口完美保留了近期上下文資訊。"><strong>Immediate Context:</strong> Sliding window preserves recent context perfectly.</div></div>
+            <div class="prop no">❌ <div data-en="Long-Term Amnesia: Once a token falls out of the window, it's permanently forgotten." data-zh="長程失憶問題：一旦 Token 掉出滑動窗口外，即被永久遺忘。"><strong>Long-Term Amnesia:</strong> Once a token falls out of the window, it's permanently forgotten.</div></div>
+            <div class="prop no">❌ <div data-en="Lost in Middle: Only remembers beginning sinks + recent end. Middle is abandoned." data-zh="中段遺忘問題：僅保留開頭注意力匯及最近的結尾，中間部分會被丟棄。"><strong>Lost in Middle:</strong> Only remembers beginning sinks + recent end. Middle is abandoned.</div></div>
+        </div>
+    </div>
+</div>
+<script>
+const CACHE_MAX = 12;
+const SINK_COUNT = 4;
+const WORDS = ["The","user","asked","about","climate","change","impacts","on","coastal","cities","and","wanted","specific","data","on","sea","level","rise","for","East","Asia","including","Taipei","flooding","risks","and","property","values","near","riverbanks"];
+const COHERENT_OUTPUTS_EN = [
+    'Processing...',
+    '"The user is interested in climate topics."',
+    '"The user asked about climate change impacts on coastal..."',
+    '"...coastal cities. They want data on sea level rise."',
+    '"Sea level rise projections for East Asia show 0.3m by 2050."',
+    '"Taipei faces moderate flooding risk due to river proximity."',
+    '"Property values near riverbanks in Taipei may decline 15%."',
+    '"Based on IPCC data, East Asian coastal cities should..."',
+    '"...should prepare for increased typhoon-related flooding."',
+    '"Recommendation: flood-proofing measures for low-lying areas."'
+];
+const COHERENT_OUTPUTS_ZH = [
+    '處理中...',
+    '「使用者對氣候議題感興趣。」',
+    '「使用者詢問了氣候變遷對沿海的影響...」',
+    '「...沿海城市。他們需要海平面上升的數據。」',
+    '「東亞海平面上升預測顯示：2050年將上升0.3公尺。」',
+    '「台北因鄰近河流面臨中度淹水風險。」',
+    '「台北河岸附近的房價可能會下跌15%。」',
+    '「根據 IPCC 數據，東亞沿海城市應該...」',
+    '「...應該為增加的颱風相關洪澇做好準備。」',
+    '「建議：對低窪地區採取防洪措施。」'
+];
+const GIBBERISH_OUTPUTS_EN = [
+    'Processing...',
+    '"The user is interested in climate topics."',
+    '"The user asked about climate change impacts on coastal..."',
+    '"...data sea on level showed the yes result."',
+    '"Rise flooding property zebra quantum potato YES."',
+    '"@#$% CONTEXT LOST — banana telephone 42 ERROR"',
+    '"The the the the the the the... [LOOP]"',
+    '"⚠ INCOHERENT: satellite umbrella fiscal pancake..."',
+    '"!!!ERROR zebra 404 climate ??? ??? ???"',
+    '"[CATASTROPHIC FAILURE — model cannot continue]"'
+];
+const GIBBERISH_OUTPUTS_ZH = [
+    '處理中...',
+    '「使用者對氣候議題感興趣。」',
+    '「使用者詢問了氣候變遷對沿海的影響...」',
+    '「...數據 海 平面 顯示 是 的 結果。」',
+    '「上升 淹水 房產 斑馬 量子 土豆 是。」',
+    '「@#$% 上下文丟失 — 香蕉 電話 42 錯誤」',
+    '「那個 那個 那個 那個 那個 那個... [無限循環]」',
+    '「⚠ 語無倫次：衛星 雨傘 財政 煎餅...」',
+    '「!!!錯誤 斑馬 404 氣候 ？？？ ？？？」',
+    '「[災難性故障 — 模型無法繼續輸出]」'
+];
+let mode = 'streaming';
+let allTokens = [];
+let cacheTokens = [];
+let evicted = 0;
+let autoInterval = null;
+let tokenCounter = 0;
+
+const STR_LANGS = {
+    en: {
+        readyStream: "Ready — streaming mode.",
+        readyWindow: "Ready — window mode.",
+        allStreamed: "All tokens streamed.",
+        posLabel: "Position indices (re-indexed): [{indices}]  ← continuous positions assigned to cached tokens",
+        posEmpty: "Position indices: —",
+        initialPpl: "Stream tokens to observe perplexity behavior.",
+        stablePpl: "Perplexity (Stable)",
+        stableDesc: "Sequence fits in cache — no eviction needed yet.",
+        stablePplDesc: "Sink tokens preserved — attention mechanism stays anchored. Stable generation for infinite length.",
+        explodePpl: "Perplexity (EXPLODING!)",
+        explodeDesc: "Without attention sinks, evicting initial tokens destroys the attention anchor — perplexity spikes catastrophically.",
+        initialMoText: "Stream tokens to see what the model generates...",
+        statusMsg: "Token {count} streamed (\"{word}\"). Cache: {cache}/{max}. Evicted: {evicted}.",
+        sinkSlot: "sink",
+        winSlot: "window",
+        autoBtn: "⏩ Auto-Play",
+        pauseBtn: "⏸ Pause"
+    },
+    zh: {
+        readyStream: "就緒 — 串流模式。",
+        readyWindow: "就緒 — 僅滑動窗口模式。",
+        allStreamed: "已完成所有 Token 串流。",
+        posLabel: "位置索引 (重新索引): [{indices}]  ← 分配給快取中 Token 的連續位置",
+        posEmpty: "位置索引：—",
+        initialPpl: "串流 Token 以觀察困惑度的變化。",
+        stablePpl: "困惑度 (穩定)",
+        stableDesc: "序列容量符合快取大小 — 尚不需要剔除 Token。",
+        stablePplDesc: "保留注意力匯 Token — 注意力機制維持錨定。實現無限長度的穩定生成。",
+        explodePpl: "困惑度 (急遽暴增！)",
+        explodeDesc: "沒有注意力匯，丟棄初始 Token 會破壞注意力的錨點 — 困惑度發生災難性飆升。",
+        initialMoText: "串流 Token 以查看模型生成的文字...",
+        statusMsg: "Token {count} 已串流 (\"{word}\")。快取：{cache}/{max}。剔除：{evicted}。",
+        sinkSlot: "注意力匯",
+        winSlot: "窗口",
+        autoBtn: "⏩ 自動播放",
+        pauseBtn: "⏸ 暫停"
+    }
+};
+
+function setMode(m, el){
+    mode = m;
+    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+    el.classList.add('active');
+    resetSim();
+}
+
+function streamToken(){
+    if(tokenCounter >= WORDS.length) {
+        if(autoInterval){ 
+            clearInterval(autoInterval); 
+            autoInterval = null; 
+            document.getElementById('auto-btn').textContent = STR_LANGS[currentLang].autoBtn; 
+        }
+        document.getElementById('status').textContent = STR_LANGS[currentLang].allStreamed;
+        document.getElementById('step-btn').disabled = true;
+        return;
+    }
+    const word = WORDS[tokenCounter];
+    tokenCounter++;
+    allTokens.push({id: tokenCounter, word: word});
+
+    if(mode === 'window'){
+        cacheTokens.push({id: tokenCounter, word: word});
+        if(cacheTokens.length > CACHE_MAX){
+            cacheTokens.shift();
+            evicted++;
+        }
+    } else {
+        cacheTokens.push({id: tokenCounter, word: word});
+        if(cacheTokens.length > CACHE_MAX){
+            cacheTokens.splice(SINK_COUNT, 1);
+            evicted++;
+        }
+    }
+    render();
+}
+
+function render(){
+    // History
+    const hist = document.getElementById('history');
+    hist.innerHTML = '';
+    allTokens.forEach((t,i)=>{
+        const d = document.createElement('div');
+        d.className = 'ht';
+        d.style.width = 'auto';
+        d.style.minWidth = '36px';
+        d.style.padding = '0 6px';
+        d.style.fontSize = '10px';
+        if(i === allTokens.length-1) d.className += ' latest';
+        else d.className += ' arrived';
+        const inCache = cacheTokens.some(c => c.id === t.id);
+        if(!inCache && i !== allTokens.length-1){
+            d.style.opacity = '0.3';
+            d.style.borderColor = 'rgba(239,68,68,0.3)';
+            d.style.color = '#f87171';
+        }
+        d.textContent = t.word;
+        hist.appendChild(d);
+    });
+
+    // Cache
+    const cache = document.getElementById('cache');
+    cache.innerHTML = '';
+    for(let i=0;i<CACHE_MAX;i++){
+        const d = document.createElement('div');
+        if(i < cacheTokens.length){
+            const t = cacheTokens[i];
+            const isSink = mode === 'streaming' && i < SINK_COUNT && allTokens.length >= SINK_COUNT;
+            d.className = 'slot ' + (isSink ? 'sink' : 'win');
+            d.style.width = 'auto';
+            d.style.minWidth = '54px';
+            d.style.padding = '0 6px';
+            d.style.fontSize = '10px';
+            const labelStr = isSink ? STR_LANGS[currentLang].sinkSlot : STR_LANGS[currentLang].winSlot;
+            d.innerHTML = t.word + '<div class="slot-label">' + labelStr + '</div>';
+        } else {
+            d.className = 'slot empty';
+            d.textContent = '—';
+        }
+        cache.appendChild(d);
+    }
+
+    // Position indices
+    const posDiv = document.getElementById('posidx');
+    if(cacheTokens.length > 0){
+        const indices = cacheTokens.map((_,i)=>i);
+        posDiv.textContent = STR_LANGS[currentLang].posLabel.replace('{indices}', indices.join(', '));
+    }
+
+    // Perplexity simulation
+    const pplCard = document.getElementById('ppl-card');
+    const pplVal = document.getElementById('ppl-value');
+    const pplLabel = document.getElementById('ppl-label');
+    const pplDesc = document.getElementById('ppl-desc');
+    const moText = document.getElementById('mo-text');
+    const outIdx = Math.min(Math.floor(allTokens.length / 3), 9);
+    
+    const coherentOutputs = currentLang === 'zh' ? COHERENT_OUTPUTS_ZH : COHERENT_OUTPUTS_EN;
+    const gibberishOutputs = currentLang === 'zh' ? GIBBERISH_OUTPUTS_ZH : GIBBERISH_OUTPUTS_EN;
+
+    if(allTokens.length <= CACHE_MAX){
+        pplCard.className = 'ppl-card safe';
+        pplVal.textContent = '~3.2';
+        pplLabel.textContent = STR_LANGS[currentLang].stablePpl;
+        pplDesc.textContent = STR_LANGS[currentLang].stableDesc;
+        moText.className = 'mo-text coherent';
+        moText.textContent = coherentOutputs[outIdx] || coherentOutputs[coherentOutputs.length-1];
+    } else if(mode === 'window'){
+        const overflow = allTokens.length - CACHE_MAX;
+        const ppl = 3.2 + Math.pow(overflow, 1.5) * 2;
+        pplCard.className = 'ppl-card danger';
+        pplVal.textContent = ppl > 999 ? '∞' : ppl.toFixed(1);
+        pplLabel.textContent = STR_LANGS[currentLang].explodePpl;
+        pplDesc.textContent = STR_LANGS[currentLang].explodeDesc;
+        pplVal.style.color = '#ef4444';
+        moText.className = 'mo-text gibberish';
+        moText.textContent = gibberishOutputs[outIdx] || gibberishOutputs[gibberishOutputs.length-1];
+    } else {
+        const ppl = 3.2 + Math.random() * 0.3;
+        pplCard.className = 'ppl-card safe';
+        pplVal.textContent = ppl.toFixed(1);
+        pplLabel.textContent = STR_LANGS[currentLang].stablePpl;
+        pplDesc.textContent = STR_LANGS[currentLang].stablePplDesc;
+        pplVal.style.color = '#fbbf24';
+        moText.className = 'mo-text coherent';
+        moText.textContent = coherentOutputs[outIdx] || coherentOutputs[coherentOutputs.length-1];
+    }
+
+    document.getElementById('evict-count').textContent = evicted;
+    
+    let statusText = STR_LANGS[currentLang].statusMsg
+        .replace('{count}', allTokens.length)
+        .replace('{word}', allTokens[allTokens.length-1].word)
+        .replace('{cache}', cacheTokens.length)
+        .replace('{max}', CACHE_MAX)
+        .replace('{evicted}', evicted);
+    document.getElementById('status').textContent = statusText;
+}
+
+function toggleAuto(){
+    const btn = document.getElementById('auto-btn');
+    if(autoInterval){
+        clearInterval(autoInterval);
+        autoInterval = null;
+        btn.textContent = STR_LANGS[currentLang].autoBtn;
+    } else {
+        autoInterval = setInterval(streamToken, 400);
+        btn.textContent = STR_LANGS[currentLang].pauseBtn;
+    }
+}
+
+function resetSim(){
+    if(autoInterval){ clearInterval(autoInterval); autoInterval = null; }
+    document.getElementById('auto-btn').textContent = STR_LANGS[currentLang].autoBtn;
+    allTokens = []; cacheTokens = []; evicted = 0; tokenCounter = 0;
+    document.getElementById('step-btn').disabled = false;
+    document.getElementById('history').innerHTML = '';
+    document.getElementById('cache').innerHTML = '';
+    document.getElementById('posidx').textContent = STR_LANGS[currentLang].posEmpty;
+    document.getElementById('ppl-value').textContent = '—';
+    document.getElementById('ppl-value').style.color = '';
+    document.getElementById('ppl-card').className = 'ppl-card';
+    document.getElementById('ppl-label').textContent = STR_LANGS[currentLang].stablePpl;
+    document.getElementById('ppl-desc').textContent = STR_LANGS[currentLang].initialPpl;
+    document.getElementById('evict-count').textContent = '0';
+    document.getElementById('mo-text').className = 'mo-text';
+    document.getElementById('mo-text').textContent = STR_LANGS[currentLang].initialMoText;
+    
+    if (mode === 'streaming') {
+        document.getElementById('status').textContent = STR_LANGS[currentLang].readyStream;
+    } else {
+        document.getElementById('status').textContent = STR_LANGS[currentLang].readyWindow;
+    }
+
+    const cache = document.getElementById('cache');
+    cache.innerHTML = '';
+    for(let i=0;i<CACHE_MAX;i++){
+        const d = document.createElement('div');
+        d.className = 'slot empty'; d.textContent = '—';
+        cache.appendChild(d);
+    }
+}
+
+function updatePageTranslations(lang) {
+    resetSim();
+}
+</script>
+
+<script>
+let currentLang = localStorage.getItem('lang') || 'en';
+
+function injectLangSelector() {
+    const selector = document.createElement('div');
+    selector.className = 'lang-selector';
+    selector.innerHTML = `
+        <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">繁中</button>
+    `;
+    document.body.appendChild(selector);
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        .lang-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--bdr, rgba(255,255,255,0.1));
+            border-radius: 8px;
+            padding: 3px;
+            z-index: 1000;
+        }
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: #7a7a90;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .lang-btn:hover {
+            color: #e8e8ed;
+        }
+        .lang-btn.active {
+            background: var(--stream, #f59e0b);
+            color: #000 !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+    const targetBtn = document.getElementById('lang-' + lang);
+    if(targetBtn) targetBtn.classList.add('active');
+    
+    document.querySelectorAll('[data-en]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+    });
+    
+    document.querySelectorAll('[data-en-html]').forEach(el => {
+        el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+    });
+
+    if (typeof updatePageTranslations === 'function') {
+        updatePageTranslations(lang);
+    }
+}
+
+injectLangSelector();
+setLanguage(currentLang);
+</script>
+</body>
+</html>
