@@ -317,6 +317,36 @@ function updatePageTranslations(lang) {
 </script>
 
 <script>
+function buildBilingualDict(dict) {
+    dict.bi = {};
+    for (let key in dict.en) {
+        const enVal = dict.en[key];
+        const zhVal = dict.zh[key];
+        if (typeof enVal === 'string') {
+            if (enVal === zhVal) {
+                dict.bi[key] = enVal;
+            } else {
+                const isShort = enVal.length < 35 && !key.toLowerCase().includes('desc') && !key.toLowerCase().includes('text') && !key.toLowerCase().includes('summary') && !key.toLowerCase().includes('lost') && !key.toLowerCase().includes('middle') && !key.toLowerCase().includes('query') && !key.toLowerCase().includes('weight');
+                if (isShort) {
+                    dict.bi[key] = enVal + ' | ' + zhVal;
+                } else {
+                    dict.bi[key] = enVal + ' / ' + zhVal;
+                }
+            }
+        } else if (Array.isArray(enVal)) {
+            dict.bi[key] = enVal.map((v, i) => {
+                const z = zhVal[i];
+                if (v === z) return v;
+                const isShort = v.length < 35;
+                if (isShort) return v + ' | ' + z;
+                return v + ' / ' + z;
+            });
+        } else {
+            dict.bi[key] = enVal;
+        }
+    }
+}
+
 let currentLang = localStorage.getItem('lang') || 'en';
 
 function injectLangSelector() {
@@ -325,6 +355,7 @@ function injectLangSelector() {
     selector.innerHTML = `
         <button class="lang-btn" id="lang-en" onclick="setLanguage('en')">EN</button>
         <button class="lang-btn" id="lang-zh" onclick="setLanguage('zh')">繁中</button>
+        <button class="lang-btn" id="lang-bi" onclick="setLanguage('bi')">EN+繁中</button>
     `;
     document.body.appendChild(selector);
     
@@ -374,11 +405,36 @@ function setLanguage(lang) {
     if(targetBtn) targetBtn.classList.add('active');
     
     document.querySelectorAll('[data-en]').forEach(el => {
-        el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+        if (lang === 'bi') {
+            const en = el.getAttribute('data-en');
+            const zh = el.getAttribute('data-zh') || '';
+            if (!zh || en === zh) {
+                el.textContent = en;
+            } else {
+                const isShort = en.length < 35 && !el.classList.contains('desc') && !el.classList.contains('cd') && el.tagName !== 'P' && el.tagName !== 'H1';
+                if (isShort) {
+                    el.textContent = en + ' | ' + zh;
+                } else {
+                    el.innerHTML = en + '<div style="font-size: 0.9em; opacity: 0.85; margin-top: 4px; font-weight: normal; line-height: 1.45;">' + zh + '</div>';
+                }
+            }
+        } else {
+            el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
+        }
     });
     
     document.querySelectorAll('[data-en-html]').forEach(el => {
-        el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+        if (lang === 'bi') {
+            const en = el.getAttribute('data-en-html');
+            const zh = el.getAttribute('data-zh-html') || '';
+            if (!zh || en === zh) {
+                el.innerHTML = en;
+            } else {
+                el.innerHTML = en + '<div style="margin-top: 12px; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 12px; line-height: 1.45;">' + zh + '</div>';
+            }
+        } else {
+            el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+        }
     });
 
     if (typeof updatePageTranslations === 'function') {
@@ -386,6 +442,7 @@ function setLanguage(lang) {
     }
 }
 
+buildBilingualDict(STR_LANGS);
 injectLangSelector();
 setLanguage(currentLang);
 updateViz();
