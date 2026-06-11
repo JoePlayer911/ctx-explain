@@ -133,6 +133,9 @@
         .pipe-step p { font-size: 13px; color: var(--txt2); line-height: 1.6; }
         .pipe-step .math { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #a78bfa; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(167,139,250,0.2); }
         
+        .ref-panel { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--bdr, rgba(255,255,255,0.1)); font-size: 12px; color: var(--txt2, #7a7a90); display: flex; flex-direction: column; gap: 8px; }
+        .ref-panel a { color: var(--accent, #3b82f6); text-decoration: none; transition: color 0.2s; }
+        .ref-panel a:hover { color: #60a5fa; text-decoration: underline; }
         @media(max-width:768px){.arch{grid-template-columns:1fr} .flow-node { width: 80px; font-size: 9px; padding: 8px; }}
     </style>
 </head>
@@ -283,6 +286,14 @@
                 <h4 data-en="Phase 4: Instant O(1) Recall (Collapse)" data-zh="階段四：O(1) 瞬間召回 (坍縮)">Phase 4: Instant O(1) Recall (Collapse)</h4>
                 <p data-en="The resulting vector is cleanly extracted. Because the query does not iterate through past tokens or rely on distance-based attention weights, there is zero signal decay. The answer is retrieved instantly in <span class='math'>O(1)</span> time, completely eliminating the 'Lost in the Middle' problem." data-zh="結果向量會被乾淨地提取出來。由於查詢不需要遍歷過去的 Token 或依賴基於距離的注意力權重，因此信號完全不會衰減。系統能在 <span class='math'>O(1)</span> 時間內瞬間檢索出答案，徹底消除了「中段遺忘」問題。">The resulting vector is cleanly extracted. Because the query does not iterate through past tokens or rely on distance-based attention weights, there is zero signal decay. The answer is retrieved instantly in <span class='math'>O(1)</span> time, completely eliminating the 'Lost in the Middle' problem.</p>
             </div>
+            </div>
+        </div>
+        
+        <div class="ref-panel">
+            <span data-en="Inspired By:" data-zh="理論啟發來源："><strong>Inspired By:</strong></span>
+            <a href="https://ieeexplore.ieee.org/document/377927" target="_blank">Holographic Reduced Representations (Tony A. Plate, 1995)</a>
+            <a href="https://arxiv.org/abs/2312.00752" target="_blank">Mamba: Linear-Time Sequence Modeling with Selective State Spaces (arXiv:2312.00752)</a>
+            <a href="https://arxiv.org/abs/2010.08895" target="_blank">Fourier Neural Operator for Parametric Partial Differential Equations (arXiv:2010.08895)</a>
         </div>
     </div>
 </div>

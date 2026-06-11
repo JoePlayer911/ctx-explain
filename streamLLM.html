@@ -83,6 +83,9 @@
         .mo-text{font-size:13px;line-height:1.7;min-height:44px;padding:12px 14px;border-radius:10px;background:rgba(0,0,0,0.3);border:1px solid var(--bdr);font-family:'JetBrains Mono',monospace;transition:all .3s}
         .mo-text.gibberish{color:#ef4444;border-color:rgba(239,68,68,0.2)}
         .mo-text.coherent{color:#6ee7b7;border-color:rgba(52,211,153,0.2)}
+        .ref-panel { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--bdr, rgba(255,255,255,0.1)); font-size: 12px; color: var(--txt2, #7a7a90); display: flex; flex-direction: column; gap: 8px; }
+        .ref-panel a { color: var(--accent, #3b82f6); text-decoration: none; transition: color 0.2s; }
+        .ref-panel a:hover { color: #60a5fa; text-decoration: underline; }
         @media(max-width:768px){.ppl-panel{grid-template-columns:1fr}}
     </style>
 </head>
@@ -145,6 +148,11 @@
             <div class="prop no">❌ <div data-en="Long-Term Amnesia: Once a token falls out of the window, it's permanently forgotten." data-zh="長程失憶問題：一旦 Token 掉出滑動窗口外，即被永久遺忘。"><strong>Long-Term Amnesia:</strong> Once a token falls out of the window, it's permanently forgotten.</div></div>
             <div class="prop no">❌ <div data-en="Lost in Middle: Only remembers beginning sinks + recent end. Middle is abandoned." data-zh="中段遺忘問題：僅保留開頭注意力匯及最近的結尾，中間部分會被丟棄。"><strong>Lost in Middle:</strong> Only remembers beginning sinks + recent end. Middle is abandoned.</div></div>
         </div>
+    </div>
+
+    <div class="ref-panel">
+        <span data-en="Paper Reference:" data-zh="論文參考："><strong>Paper Reference:</strong></span>
+        <a href="https://arxiv.org/abs/2309.17453" target="_blank">Efficient Streaming Language Models with Attention Sinks (arXiv:2309.17453)</a>
     </div>
 </div>
 <script>

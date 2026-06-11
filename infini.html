@@ -106,6 +106,9 @@
         .mem-stat{font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:8px;padding:6px 10px;border-radius:6px;background:rgba(0,0,0,0.2)}
         .cmp-std .mem-stat{color:#fca5a5}
         .cmp-inf .mem-stat{color:#6ee7b7}
+        .ref-panel { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--bdr, rgba(255,255,255,0.1)); font-size: 12px; color: var(--txt2, #7a7a90); display: flex; flex-direction: column; gap: 8px; }
+        .ref-panel a { color: var(--accent, #3b82f6); text-decoration: none; transition: color 0.2s; }
+        .ref-panel a:hover { color: #60a5fa; text-decoration: underline; }
         @media(max-width:768px){.arch{grid-template-columns:1fr}.bar-ctr{width:100%}.compare-row{grid-template-columns:1fr}}
     </style>
 </head>
@@ -207,7 +210,15 @@
                 </div>
                 <div class="gate-labels"><span>Local A_dot · (1−σ(β))</span><span>Memory A_mem · σ(β)</span></div>
                 <div class="panel-desc" style="margin-top:12px;text-align:left;border-top:1px solid var(--bdr);padding-top:10px" data-en="Gating β acts as a learned balancing switch. A high β (closer to 1.0) forces the attention layer to retrieve facts from the global compressive memory (historical text), while a low β (closer to 0.0) limits focus to the local attention window (immediate active words)." data-zh="門控參數 β 作為學習式的平衡開關。較高的 β（接近 1.0）強迫注意力層從全局壓縮記憶體中檢索事實（歷史文本）；較低的 β（接近 0.0）則將注意力限制在當前局部窗口（即時字詞）。">Gating β acts as a learned balancing switch. A high β (closer to 1.0) forces the attention layer to retrieve facts from the global compressive memory (historical text), while a low β (closer to 0.0) limits focus to the local attention window (immediate active words).</div>
-       
+            </div>
+        </div>
+        
+        <div class="ref-panel">
+            <span data-en="Paper Reference:" data-zh="論文參考："><strong>Paper Reference:</strong></span>
+            <a href="https://arxiv.org/abs/2404.07143" target="_blank">Leave No Context Behind: Efficient Infinite Context Transformers with Infini-attention (arXiv:2404.07143)</a>
+        </div>
+    </div>
+
 <script>
 const TEXT = ["The","Infini-attention","framework","allows","LLMs","to","process","infinitely","long","inputs","by","maintaining","a","bounded","memory","footprint","without","running","out","of","precious","VRAM","hardware","allocations"];
 const SEG = 4;
