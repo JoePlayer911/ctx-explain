@@ -138,6 +138,10 @@
         .ref-panel a:hover { color: #60a5fa; text-decoration: underline; }
         @media(max-width:768px){.arch{grid-template-columns:1fr} .flow-node { width: 80px; font-size: 9px; padding: 8px; }}
     </style>
+    <script>
+    window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <a href="index.html" class="back" data-en="← All Methods" data-zh="← 返回所有方法">← All Methods</a>
@@ -231,9 +235,9 @@
             </div>
             
             <div class="equation-block">
-                <div data-en="Memory footprint = O(1) fixed spectral grid" data-zh="記憶體佔用 = O(1) 的固定光譜網格">Memory footprint = O(1) fixed spectral grid</div>
-                <div data-en="Query complexity = O(1) inverse fast fourier" data-zh="查詢複雜度 = O(1) 快速反傅立葉轉換">Query complexity = O(1) inverse fast fourier</div>
-                <div data-en="Collision rate = <span class='math-high'>0.0000%</span> (Orthogonal basis)" data-zh="碰撞率 = <span class='math-high'>0.0000%</span> (正交基底)">Collision rate = <span class='math-high'>0.0000%</span> (Orthogonal basis)</div>
+                <div data-en-html="Memory footprint = O(1) fixed spectral grid" data-zh-html="記憶體佔用 = O(1) 的固定光譜網格">Memory footprint = O(1) fixed spectral grid</div>
+                <div data-en-html="Query complexity = O(1) inverse fast fourier" data-zh-html="查詢複雜度 = O(1) 快速反傅立葉轉換">Query complexity = O(1) inverse fast fourier</div>
+                <div data-en-html="Collision rate = <span class='math-high'>0.0000%</span> (Orthogonal basis)" data-zh-html="碰撞率 = <span class='math-high'>0.0000%</span> (正交基底)">Collision rate = <span class='math-high'>0.0000%</span> (Orthogonal basis)</div>
             </div>
         </div>
         
@@ -266,25 +270,25 @@
             <div class="pipe-step">
                 <div class="pipe-num"></div>
                 <h4 data-en="Phase 1: Holographic Encoding (Write)" data-zh="階段一：全息編碼 (寫入)">Phase 1: Holographic Encoding (Write)</h4>
-                <p data-en="Instead of storing discrete Key ($K_t$) and Value ($V_t$) tensors in VRAM, FHR binds them into a single high-dimensional tensor using Holographic Reduced Representations (HRR), typically via circular convolution: <span class='math'>C_t = K_t \circledast V_t</span>." data-zh="FHR 不將離散的鍵 ($K_t$) 與值 ($V_t$) 張量儲存於 VRAM 中，而是利用全息縮減表示法 (HRR) 透過圓形卷積將它們綁定為單一的高維張量：<span class='math'>C_t = K_t \circledast V_t</span>。">Instead of storing discrete Key ($K_t$) and Value ($V_t$) tensors in VRAM, FHR binds them into a single high-dimensional tensor using Holographic Reduced Representations (HRR), typically via circular convolution: <span class='math'>C_t = K_t \circledast V_t</span>.</p>
+                <p data-en-html="Instead of storing discrete Key (\(K_t\)) and Value (\(V_t\)) tensors in VRAM, FHR binds them into a single high-dimensional tensor using Holographic Reduced Representations (HRR), typically via circular convolution: <span class='math'>\(C_t = K_t \circledast V_t\)</span>." data-zh-html="FHR 不將離散的鍵 (\(K_t\)) 與值 (\(V_t\)) 張量儲存於 VRAM 中，而是利用全息縮減表示法 (HRR) 透過圓形卷積將它們綁定為單一的高維張量：<span class='math'>\(C_t = K_t \circledast V_t\)</span>。">Instead of storing discrete Key (\(K_t\)) and Value (\(V_t\)) tensors in VRAM, FHR binds them into a single high-dimensional tensor using Holographic Reduced Representations (HRR), typically via circular convolution: <span class='math'>\(C_t = K_t \circledast V_t\)</span>.</p>
             </div>
             
             <div class="pipe-step">
                 <div class="pipe-num"></div>
                 <h4 data-en="Phase 2: Spectral Manifold Injection (Superposition)" data-zh="階段二：光譜流形注入 (疊加)">Phase 2: Spectral Manifold Injection (Superposition)</h4>
-                <p data-en="The bound tensor $C_t$ is transformed into a continuous frequency wave using a Fast Fourier Transform (FFT). This wave is linearly added into the global Continuous Spectral Manifold $\mathcal{M}$. Because adding frequencies to a fixed-size spectral grid does not increase the grid's dimensions, the memory footprint remains strictly <span class='math'>O(1)</span> regardless of sequence length." data-zh="綁定後的張量 $C_t$ 透過快速傅立葉轉換 (FFT) 轉換為連續的頻率波。此波段會被線性加總至全局連續光譜流形 $\mathcal{M}$ 中。由於將頻率加入固定大小的光譜網格並不會增加網格維度，因此無論序列多長，記憶體佔用皆嚴格保持在 <span class='math'>O(1)</span>。">The bound tensor $C_t$ is transformed into a continuous frequency wave using a Fast Fourier Transform (FFT). This wave is linearly added into the global Continuous Spectral Manifold $\mathcal{M}$. Because adding frequencies to a fixed-size spectral grid does not increase the grid's dimensions, the memory footprint remains strictly <span class='math'>O(1)</span> regardless of sequence length.</p>
+                <p data-en-html="The bound tensor \(C_t\) is transformed into a continuous frequency wave using a Fast Fourier Transform (FFT). This wave is linearly added into the global Continuous Spectral Manifold \(\mathcal{M}\). Because adding frequencies to a fixed-size spectral grid does not increase the grid's dimensions, the memory footprint remains strictly <span class='math'>\(\mathcal{O}(1)\)</span> regardless of sequence length." data-zh-html="綁定後的張量 \(C_t\) 透過快速傅立葉轉換 (FFT) 轉換為連續的頻率波。此波段會被線性加總至全局連續光譜流形 \(\mathcal{M}\) 中。由於將頻率加入固定大小的光譜網格並不會增加網格維度，因此無論序列多長，記憶體佔用皆嚴格保持在 <span class='math'>\(\mathcal{O}(1)\)</span>。">The bound tensor \(C_t\) is transformed into a continuous frequency wave using a Fast Fourier Transform (FFT). This wave is linearly added into the global Continuous Spectral Manifold \(\mathcal{M}\). Because adding frequencies to a fixed-size spectral grid does not increase the grid's dimensions, the memory footprint remains strictly <span class='math'>\(\mathcal{O}(1)\)</span> regardless of sequence length.</p>
             </div>
             
             <div class="pipe-step">
                 <div class="pipe-num"></div>
                 <h4 data-en="Phase 3: Resonance Query (Read)" data-zh="階段三：共振查詢 (讀取)">Phase 3: Resonance Query (Read)</h4>
-                <p data-en="When a new Query ($Q$) arrives, it is transformed into the spectral domain. We perform an Inverse Fourier Transform on the point-wise multiplication of the Query and the Manifold: <span class='math'>\mathcal{F}^{-1}\{Q(\omega) \odot \mathcal{M}(\omega)\}</span>. Thanks to the orthogonality of the encoded frequencies, non-matching terms cancel out (destructive interference), while the exact matching phase amplifies (constructive interference)." data-zh="當收到新的查詢 ($Q$) 時，它會被轉換至光譜域。我們對查詢與流形的逐點乘積執行反傅立葉轉換：<span class='math'>\mathcal{F}^{-1}\{Q(\omega) \odot \mathcal{M}(\omega)\}</span>。得益於編碼頻率的正交性，不匹配的項目會相互抵消 (破壞性干涉)，而精確匹配的相位則會被放大 (建設性干涉)。">When a new Query ($Q$) arrives, it is transformed into the spectral domain. We perform an Inverse Fourier Transform on the point-wise multiplication of the Query and the Manifold: <span class='math'>\mathcal{F}^{-1}\{Q(\omega) \odot \mathcal{M}(\omega)\}</span>. Thanks to the orthogonality of the encoded frequencies, non-matching terms cancel out (destructive interference), while the exact matching phase amplifies (constructive interference).</p>
+                <p data-en-html="When a new Query (\(Q\)) arrives, it is transformed into the spectral domain. We perform an Inverse Fourier Transform on the point-wise multiplication of the Query and the Manifold: <span class='math'>\(\mathcal{F}^{-1}\{Q(\omega) \odot \mathcal{M}(\omega)\}\)</span>. Thanks to the orthogonality of the encoded frequencies, non-matching terms cancel out (destructive interference), while the exact matching phase amplifies (constructive interference)." data-zh-html="當收到新的查詢 (\(Q\)) 時，它會被轉換至光譜域。我們對查詢與流形的逐點乘積執行反傅立葉轉換：<span class='math'>\(\mathcal{F}^{-1}\{Q(\omega) \odot \mathcal{M}(\omega)\}\)</span>。得益於編碼頻率的正交性，不匹配的項目會相互抵消 (破壞性干涉)，而精確匹配的相位則會被放大 (建設性干涉)。">When a new Query (\(Q\)) arrives, it is transformed into the spectral domain. We perform an Inverse Fourier Transform on the point-wise multiplication of the Query and the Manifold: <span class='math'>\(\mathcal{F}^{-1}\{Q(\omega) \odot \mathcal{M}(\omega)\}\)</span>. Thanks to the orthogonality of the encoded frequencies, non-matching terms cancel out (destructive interference), while the exact matching phase amplifies (constructive interference).</p>
             </div>
             
             <div class="pipe-step">
                 <div class="pipe-num"></div>
                 <h4 data-en="Phase 4: Instant O(1) Recall (Collapse)" data-zh="階段四：O(1) 瞬間召回 (坍縮)">Phase 4: Instant O(1) Recall (Collapse)</h4>
-                <p data-en="The resulting vector is cleanly extracted. Because the query does not iterate through past tokens or rely on distance-based attention weights, there is zero signal decay. The answer is retrieved instantly in <span class='math'>O(1)</span> time, completely eliminating the 'Lost in the Middle' problem." data-zh="結果向量會被乾淨地提取出來。由於查詢不需要遍歷過去的 Token 或依賴基於距離的注意力權重，因此信號完全不會衰減。系統能在 <span class='math'>O(1)</span> 時間內瞬間檢索出答案，徹底消除了「中段遺忘」問題。">The resulting vector is cleanly extracted. Because the query does not iterate through past tokens or rely on distance-based attention weights, there is zero signal decay. The answer is retrieved instantly in <span class='math'>O(1)</span> time, completely eliminating the 'Lost in the Middle' problem.</p>
+                <p data-en-html="The resulting vector is cleanly extracted. Because the query does not iterate through past tokens or rely on distance-based attention weights, there is zero signal decay. The answer is retrieved instantly in <span class='math'>\(\mathcal{O}(1)\)</span> time, completely eliminating the 'Lost in the Middle' problem." data-zh-html="結果向量會被乾淨地提取出來。由於查詢不需要遍歷過去的 Token 或依賴基於距離的注意力權重，因此信號完全不會衰減。系統能在 <span class='math'>\(\mathcal{O}(1)\)</span> 時間內瞬間檢索出答案，徹底消除了「中段遺忘」問題。">The resulting vector is cleanly extracted. Because the query does not iterate through past tokens or rely on distance-based attention weights, there is zero signal decay. The answer is retrieved instantly in <span class='math'>\(\mathcal{O}(1)\)</span> time, completely eliminating the 'Lost in the Middle' problem.</p>
             </div>
             </div>
         </div>
@@ -583,6 +587,24 @@ function setLanguage(lang) {
             el.textContent = el.getAttribute('data-' + lang) || el.getAttribute('data-en');
         }
     });
+
+    document.querySelectorAll('[data-en-html]').forEach(el => {
+        if (lang === 'bi') {
+            const en = el.getAttribute('data-en-html');
+            const zh = el.getAttribute('data-zh-html') || '';
+            if (!zh || en === zh) {
+                el.innerHTML = en;
+            } else {
+                el.innerHTML = en + '<div style="font-size: 0.9em; opacity: 0.85; margin-top: 4px; font-weight: normal; line-height: 1.45;">' + zh + '</div>';
+            }
+        } else {
+            el.innerHTML = el.getAttribute('data-' + lang + '-html') || el.getAttribute('data-en-html');
+        }
+    });
+
+    if (window.MathJax) {
+        MathJax.typesetPromise();
+    }
 }
 
 injectLangSelector();
